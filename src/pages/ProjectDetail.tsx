@@ -1,26 +1,19 @@
 import React from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
+import api from '../services/api'
 
 export default function ProjectDetail() {
     const { id } = useParams()
     const navigate = useNavigate()
-    const [project, setProject] = React.useState<any>(() => {
-        const all = JSON.parse(localStorage.getItem('collab_projects') || '[]')
-        return all.find((p: any) => p.id === id)
-    })
+    const [project, setProject] = React.useState<any>(null)
 
     React.useEffect(() => {
-        const all = JSON.parse(localStorage.getItem('collab_projects') || '[]')
-        setProject(all.find((p: any) => p.id === id))
+        api.getProject(id as string).then((p:any)=> setProject(p)).catch(()=> setProject(null))
     }, [id])
 
     function deleteFile(fileId: string) {
         if (!confirm('Delete file?')) return
-        const all = JSON.parse(localStorage.getItem('collab_projects') || '[]')
-        const p = all.find((x: any) => x.id === id)
-        p.files = p.files.filter((f: any) => f.id !== fileId)
-        localStorage.setItem('collab_projects', JSON.stringify(all))
-        setProject({ ...p })
+        api.deleteFile(id as string, fileId).then((p:any)=> setProject({...p}))
     }
 
     function downloadFile(file: any) {
