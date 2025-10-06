@@ -1,21 +1,16 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { nanoid } from 'nanoid'
+import api from '../services/api'
 
 type FileMeta = { id: string; name: string; type: string; dataUrl?: string }
 type Project = { id: string; name: string; files: FileMeta[] }
 
-function loadProjects(): Project[] {
-    return JSON.parse(localStorage.getItem('collab_projects') || '[]')
-}
-
-function saveProjects(p: Project[]) { localStorage.setItem('collab_projects', JSON.stringify(p)) }
-
 export default function Projects() {
-    const [projects, setProjects] = React.useState<Project[]>(loadProjects)
+    const [projects, setProjects] = React.useState<Project[]>([])
     const [name, setName] = React.useState('')
 
-    React.useEffect(() => saveProjects(projects), [projects])
+    React.useEffect(() => { api.getProjects().then((p:any)=> setProjects(p || [])).catch(()=> setProjects([])) }, [])
 
     async function handleFilesChange(e: React.ChangeEvent<HTMLInputElement>) {
         const input = e.target
@@ -26,7 +21,7 @@ export default function Projects() {
             reader.onload = () => res({ id: nanoid(), name: f.name, type: f.type, dataUrl: reader.result as string })
             reader.readAsDataURL(f)
         })))
-        const proj: Project = { id: 'p_' + Date.now(), name, files: fileMetas }
+        const proj:any = await api.createProject(name, fileMetas)
         setProjects(prev => [proj, ...prev])
         setName('')
         input.value = ''
@@ -34,7 +29,7 @@ export default function Projects() {
 
     function removeProject(id: string) {
         if (!confirm('Delete project?')) return
-        setProjects(prev => prev.filter(p => p.id !== id))
+        api.deleteProject(id).then(()=> setProjects(prev => prev.filter(p => p.id !== id)))
     }
 
     return (
