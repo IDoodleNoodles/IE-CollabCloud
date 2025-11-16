@@ -16,16 +16,16 @@ async function restFetch(path:string, opts:RequestInit={}){
 
 const api = {
     // Auth
-    async register(email:string, password:string){
+    async register(email:string, password:string, name?:string){
         if(API_BASE){
-            return restFetch('/auth/register', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email,password}) })
+            return restFetch('/auth/register', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email,password,name}) })
         }
         const users = JSON.parse(localStorage.getItem('collab_users')||'[]')
-        if(users.find((u:any)=>u.email===email)) throw new Error('email exists')
+        if(users.some((u:any)=>u.email===email)) throw new Error('email exists')
         const id = 'u_'+Date.now()
-        users.push({ id, email, password })
+        users.push({ id, email, password, name })
         localStorage.setItem('collab_users', JSON.stringify(users))
-        return { id, email }
+        return { id, email, name }
     },
     async login(email:string, password:string){
         if(API_BASE){
@@ -43,7 +43,7 @@ const api = {
             return restFetch('/auth/reset-password', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email}) })
         }
         const users = JSON.parse(localStorage.getItem('collab_users')||'[]')
-        if(!users.find((u:any)=>u.email===email)) throw new Error('not found')
+        if(!users.some((u:any)=>u.email===email)) throw new Error('not found')
         return { ok:true }
     },
 
@@ -52,7 +52,9 @@ const api = {
         if(API_BASE){
             const fd = new FormData()
             fd.append('name', name)
-            files.forEach((f:any)=> fd.append('files', f.blob || f, f.name))
+            for (const f of files) {
+                fd.append('files', f.blob || f, f.name)
+            }
             return restFetch('/projects', { method:'POST', body: fd })
         }
         const projects = JSON.parse(localStorage.getItem('collab_projects')||'[]')
@@ -80,7 +82,9 @@ const api = {
     async uploadFiles(projectId:string, fileMetas:any[]){
         if(API_BASE){
             const fd = new FormData()
-            fileMetas.forEach((f:any)=> fd.append('files', f.blob || f, f.name))
+            for (const f of fileMetas) {
+                fd.append('files', f.blob || f, f.name)
+            }
             return restFetch(`/projects/${projectId}/files`, { method:'POST', body:fd })
         }
         const all = JSON.parse(localStorage.getItem('collab_projects')||'[]')
@@ -109,7 +113,7 @@ const api = {
         const all = JSON.parse(localStorage.getItem('collab_projects')||'[]')
         const p = all.find((x:any)=>x.id===projectId)
         const f = p?.files.find((x:any)=>x.id===fileId)
-        if(f){ f.dataUrl = 'data:text/plain;base64,' + btoa(unescape(encodeURIComponent(content))) ; localStorage.setItem('collab_projects', JSON.stringify(all)) }
+        if(f){ f.dataUrl = 'data:text/plain;base64,' + btoa(encodeURIComponent(content)) ; localStorage.setItem('collab_projects', JSON.stringify(all)) }
         return v
     },
     async listVersions(){
@@ -124,7 +128,7 @@ const api = {
         const all = JSON.parse(localStorage.getItem('collab_projects')||'[]')
         const p = all.find((x:any)=>x.id===projectId)
         const f = p.files.find((x:any)=>x.id===fileId)
-        f.dataUrl = 'data:text/plain;base64,' + btoa(unescape(encodeURIComponent(v.content)))
+        f.dataUrl = 'data:text/plain;base64,' + btoa(encodeURIComponent(v.content))
         localStorage.setItem('collab_projects', JSON.stringify(all))
         return { ok:true }
     },
@@ -160,20 +164,6 @@ const api = {
         if(API_BASE) return restFetch('/users/me', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(profile) })
         localStorage.setItem('collab_profile', JSON.stringify(profile))
         return profile
-    },
-
-    // Forums
-    async getTopics(){
-        if(API_BASE) return restFetch('/forums/topics')
-        return JSON.parse(localStorage.getItem('collab_forums')||'[]')
-    },
-    async createTopic(title:string, body:string){
-        if(API_BASE) return restFetch('/forums/topics', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({title,body}) })
-        const topics = JSON.parse(localStorage.getItem('collab_forums')||'[]')
-        const t = { id: 't_'+Date.now(), title, body, ts: Date.now(), replies: [] }
-        const next = [t, ...topics]
-        localStorage.setItem('collab_forums', JSON.stringify(next))
-        return t
     }
 }
 
