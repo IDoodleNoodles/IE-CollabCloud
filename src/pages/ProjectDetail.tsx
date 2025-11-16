@@ -1,61 +1,113 @@
 import React from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import api from '../services/api'
+import { downloadFile, getFileTypeLabel, formatFileSize, getFileSizeFromDataUrl, isTextFile } from '../utils/helpers'
 
 export default function ProjectDetail() {
     const { id } = useParams()
     const navigate = useNavigate()
     const [project, setProject] = React.useState<any>(null)
+    const [loading, setLoading] = React.useState(true)
 
     React.useEffect(() => {
-        api.getProject(id as string).then((p:any)=> setProject(p)).catch(()=> setProject(null))
+        setLoading(true)
+        api.getProject(id as string)
+            .then((p:any)=> setProject(p))
+            .catch(()=> setProject(null))
+            .finally(() => setLoading(false))
     }, [id])
 
-    function deleteFile(fileId: string) {
-        if (!confirm('Delete file?')) return
+    function deleteFile(fileId: string, fileName: string) {
+        if (!confirm(`Delete "${fileName}"? This cannot be undone.`)) return
         api.deleteFile(id as string, fileId).then((p:any)=> setProject({...p}))
     }
 
-    function downloadFile(file: any) {
-        // file.dataUrl -> blob
-        const arr = file.dataUrl.split(',')
-        const mime = arr[0].match(/:(.*?);/)?.[1] || file.type || 'application/octet-stream'
-        const bstr = atob(arr[1])
-        let n = bstr.length
-        const u8 = new Uint8Array(n)
-        while (n--) u8[n] = bstr.charCodeAt(n)
-        const blob = new Blob([u8], { type: mime })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = file.name
-        a.click()
-        URL.revokeObjectURL(url)
+    const handleDownloadFile = (file: any) => {
+        try {
+            downloadFile(file.name, file.dataUrl, file.type)
+        } catch (error) {
+            alert('Error downloading file')
+        }
     }
 
-    if (!project) return <div>Project not found</div>
+    if (loading) {
+        return (
+            <div className="empty-state">
+                <h3>Loading project...</h3>
+            </div>
+        )
+    }
+
+    if (!project) {
+        return (
+            <div className="empty-state">
+                <h3>Project not found</h3>
+                <button className="secondary" onClick={() => navigate('/projects')}>Back to Projects</button>
+            </div>
+        )
+    }
 
     return (
         <div>
-            <h2>{project.name}</h2>
-            <div className="list">
-                {project.files.map((f: any) => (
-                    <div key={f.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                            <div><strong>{f.name}</strong></div>
-                            <div style={{ fontSize: 12, color: '#6b7280' }}>{f.type || 'unknown'}</div>
-                        </div>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                            <Link to={`/editor/${project.id}/${f.id}`}><button>Edit</button></Link>
-                            <button onClick={() => downloadFile(f)}>Download</button>
-                            <button onClick={() => deleteFile(f.id)}>Delete</button>
-                        </div>
-                    </div>
-                ))}
+            <div style={{ marginBottom: '2rem' }}>
+                <button className="secondary" onClick={() => navigate('/projects')} style={{ marginBottom: '1rem' }}>
+                    Back to Projects
+                </button>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                    <h2 style={{ margin: 0 }}>{project.name}</h2>
+                    <button onClick={() => navigate(`/projects/${project.id}/collaborators`)}>
+                        Manage Collaborators
+                    </button>
+                </div>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    <span className="badge primary">{project.files.length} {project.files.length === 1 ? 'file' : 'files'}</span>
+                </div>
             </div>
-            <div style={{ marginTop: 12 }}>
-                <button onClick={() => navigate('/projects')}>Back to Projects</button>
-            </div>
+
+            {project.files.length === 0 ? (
+                <div className="empty-state">
+                    <h3>No files in this project</h3>
+                    <p className="text-muted">Upload files to get started</p>
+                </div>
+            ) : (
+                <div className="list">
+                    {project.files.map((f: any) => (
+                        <div key={f.id} className="card">
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', flex: 1 }}>
+                                    <div style={{ 
+                                        fontSize: '0.75rem', 
+                                        fontWeight: 'bold', 
+                                        color: 'white',
+                                        background: '#2196f3',
+                                        padding: '0.5rem',
+                                        borderRadius: '4px',
+                                        minWidth: '50px',
+                                        textAlign: 'center'
+                                    }}>{getFileTypeLabel(f.name)}</div>
+                                    <div style={{ flex: 1 }}>
+                                        <h4 style={{ marginBottom: '0.25rem' }}>{f.name}</h4>
+                                        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                                            <span className="text-muted text-sm">{f.type || 'unknown type'}</span>
+                                            {f.dataUrl && <span className="text-muted text-sm">{formatFileSize(getFileSizeFromDataUrl(f.dataUrl))}</span>}
+                                            {isTextFile(f.name) && <span className="badge success text-xs">Editable</span>}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="btn-group">
+                                    {isTextFile(f.name) && (
+                                        <Link to={`/editor/${project.id}/${f.id}`}>
+                                            <button>Edit</button>
+                                        </Link>
+                                    )}
+                                    <button className="secondary" onClick={() => handleDownloadFile(f)}>Download</button>
+                                    <button className="danger" onClick={() => deleteFile(f.id, f.name)}>Delete</button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     )
 }
