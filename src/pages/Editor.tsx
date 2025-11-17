@@ -1,6 +1,7 @@
 import React from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ActivityLogger, ActivityTypes } from '../services/activityLogger'
+import { encodeToBase64, decodeFromBase64 } from '../utils/helpers'
 
 export default function Editor() {
     const { projectId, fileId } = useParams()

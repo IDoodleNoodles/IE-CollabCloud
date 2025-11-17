@@ -5,8 +5,6 @@ import Auth from './pages/Auth'
 import Projects from './pages/Projects'
 import ProjectDetail from './pages/ProjectDetail'
 import Editor from './pages/Editor'
-import Versions from './pages/Versions'
-import Comments from './pages/Comments'
 import Profile from './pages/Profile'
 import ActivityLogs from './pages/ActivityLogs'
 import Search from './pages/Search'
@@ -232,48 +230,6 @@ export default function App() {
                                     e.currentTarget.style.background = 'transparent'
                                 }
                             }}>View Projects</Link>
-                            <Link to="/comments" style={{
-                                padding: '0.875rem 0.75rem',
-                                borderRadius: '10px',
-                                textDecoration: 'none',
-                                color: location.pathname === '/comments' ? '#1e88e5' : '#64748b',
-                                transition: 'all 0.2s',
-                                background: location.pathname === '/comments' ? '#e3f2fd' : 'transparent',
-                                fontWeight: location.pathname === '/comments' ? '600' : '500',
-                                fontSize: '0.95rem',
-                                display: 'block'
-                            }}
-                            onMouseOver={(e) => {
-                                if (location.pathname !== '/comments') {
-                                    e.currentTarget.style.background = '#f8fafc'
-                                }
-                            }}
-                            onMouseOut={(e) => {
-                                if (location.pathname !== '/comments') {
-                                    e.currentTarget.style.background = 'transparent'
-                                }
-                            }}>Add Comment</Link>
-                            <Link to="/versions" style={{
-                                padding: '0.875rem 0.75rem',
-                                borderRadius: '10px',
-                                textDecoration: 'none',
-                                color: location.pathname === '/versions' ? '#1e88e5' : '#64748b',
-                                transition: 'all 0.2s',
-                                background: location.pathname === '/versions' ? '#e3f2fd' : 'transparent',
-                                fontWeight: location.pathname === '/versions' ? '600' : '500',
-                                fontSize: '0.95rem',
-                                display: 'block'
-                            }}
-                            onMouseOver={(e) => {
-                                if (location.pathname !== '/versions') {
-                                    e.currentTarget.style.background = '#f8fafc'
-                                }
-                            }}
-                            onMouseOut={(e) => {
-                                if (location.pathname !== '/versions') {
-                                    e.currentTarget.style.background = 'transparent'
-                                }
-                            }}>View Versions</Link>
                             <Link to="/activity" style={{
                                 padding: '0.875rem 0.75rem',
                                 borderRadius: '10px',
@@ -325,11 +281,9 @@ export default function App() {
                     <Route path="/" element={user ? <Dashboard /> : <Navigate to="/auth" replace />} />
                     <Route path="/projects" element={user ? <Projects /> : <Navigate to="/auth" replace />} />
                     <Route path="/projects/:id" element={user ? <ProjectDetail /> : <Navigate to="/auth" replace />} />
-                    <Route path="/projects/:id/collaborators" element={user ? <Collaborators /> : <Navigate to="/auth" replace />} />
+                    <Route path="/projects/:projectId/collaborators" element={user ? <Collaborators /> : <Navigate to="/auth" replace />} />
                     <Route path="/editor/:projectId/:fileId" element={user ? <Editor /> : <Navigate to="/auth" replace />} />
                     <Route path="/search" element={user ? <Search /> : <Navigate to="/auth" replace />} />
-                    <Route path="/versions" element={user ? <Versions /> : <Navigate to="/auth" replace />} />
-                    <Route path="/comments" element={user ? <Comments /> : <Navigate to="/auth" replace />} />
                     <Route path="/profile" element={user ? <Profile /> : <Navigate to="/auth" replace />} />
                     <Route path="/activity" element={user ? <ActivityLogs /> : <Navigate to="/auth" replace />} />
                     <Route path="*" element={<Navigate to={user ? "/" : "/auth"} replace />} />

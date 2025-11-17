@@ -14,10 +14,22 @@ export default function Dashboard() {
 
     React.useEffect(() => {
         const projects = JSON.parse(localStorage.getItem('collab_projects') || '[]')
-        const versions = JSON.parse(localStorage.getItem('collab_versions') || '[]')
-        const comments = JSON.parse(localStorage.getItem('collab_comments') || '[]')
+        const totalFiles = projects.reduce((sum: number, p: any) => sum + (p.files?.length || 0), 0)
         
-        setStats({ projects: projects.length, versions: versions.length, comments: comments.length, topics: 0 })
+        // Count unique collaborators across all projects
+        const allCollaborators = new Set<string>()
+        projects.forEach((p: any) => {
+            const collabKey = `collab_project_${p.id}_collaborators`
+            const projectCollabs = JSON.parse(localStorage.getItem(collabKey) || '[]')
+            projectCollabs.forEach((c: any) => allCollaborators.add(c.email))
+        })
+        
+        setStats({ 
+            projects: projects.length, 
+            versions: totalFiles, 
+            comments: allCollaborators.size, 
+            topics: 0 
+        })
         ActivityLogger.log(ActivityTypes.VIEW_DASHBOARD, 'Viewed dashboard')
     }, [])
 
@@ -76,7 +88,7 @@ export default function Dashboard() {
 
             {/* Stats Cards */}
             <div className="grid" style={{ 
-                gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
+                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
                 gap: '1.75rem', 
                 marginBottom: '3rem' 
             }}>
@@ -103,45 +115,22 @@ export default function Dashboard() {
                             fontWeight: '600', 
                             color: '#1e293b',
                             marginBottom: '0.5rem'
-                        }}>Projects</h3>
+                        }}>Total Projects</h3>
                         <p style={{ 
                             color: '#64748b', 
                             fontSize: '0.875rem',
                             lineHeight: '1.5'
-                        }}>Upload and manage all your project files in one place</p>
+                        }}>All your projects in one place</p>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                        <div style={{ 
-                            fontSize: '3rem', 
-                            fontWeight: '700', 
-                            background: 'linear-gradient(135deg, #1e88e5 0%, #42a5f5 100%)',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            backgroundClip: 'text',
-                            lineHeight: '1'
-                        }}>{stats.projects}</div>
-                        <Link to="/projects" style={{ textDecoration: 'none' }}>
-                            <button style={{
-                                background: '#f1f5f9',
-                                color: '#1e88e5',
-                                padding: '0.625rem 1.25rem',
-                                borderRadius: '10px',
-                                border: 'none',
-                                fontSize: '0.9rem',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s'
-                            }}
-                            onMouseOver={(e) => {
-                                e.currentTarget.style.background = '#e0f2fe'
-                            }}
-                            onMouseOut={(e) => {
-                                e.currentTarget.style.background = '#f1f5f9'
-                            }}>
-                                View All
-                            </button>
-                        </Link>
-                    </div>
+                    <div style={{ 
+                        fontSize: '3rem', 
+                        fontWeight: '700', 
+                        background: 'linear-gradient(135deg, #1e88e5 0%, #42a5f5 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        backgroundClip: 'text',
+                        lineHeight: '1'
+                    }}>{stats.projects}</div>
                 </div>
 
                 <div className="dashboard-card" style={{ 
@@ -167,45 +156,22 @@ export default function Dashboard() {
                             fontWeight: '600', 
                             color: '#1e293b',
                             marginBottom: '0.5rem'
-                        }}>Versions</h3>
+                        }}>Total Files</h3>
                         <p style={{ 
                             color: '#64748b', 
                             fontSize: '0.875rem',
                             lineHeight: '1.5'
-                        }}>Track changes and restore previous versions easily</p>
+                        }}>Files across all your projects</p>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                        <div style={{ 
-                            fontSize: '3rem', 
-                            fontWeight: '700', 
-                            background: 'linear-gradient(135deg, #1e88e5 0%, #42a5f5 100%)',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            backgroundClip: 'text',
-                            lineHeight: '1'
-                        }}>{stats.versions}</div>
-                        <Link to="/versions" style={{ textDecoration: 'none' }}>
-                            <button style={{
-                                background: '#f1f5f9',
-                                color: '#1e88e5',
-                                padding: '0.625rem 1.25rem',
-                                borderRadius: '10px',
-                                border: 'none',
-                                fontSize: '0.9rem',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s'
-                            }}
-                            onMouseOver={(e) => {
-                                e.currentTarget.style.background = '#e0f2fe'
-                            }}
-                            onMouseOut={(e) => {
-                                e.currentTarget.style.background = '#f1f5f9'
-                            }}>
-                                See All
-                            </button>
-                        </Link>
-                    </div>
+                    <div style={{ 
+                        fontSize: '3rem', 
+                        fontWeight: '700', 
+                        background: 'linear-gradient(135deg, #1e88e5 0%, #42a5f5 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        backgroundClip: 'text',
+                        lineHeight: '1'
+                    }}>{stats.versions}</div>
                 </div>
 
                 <div className="dashboard-card" style={{ 
@@ -231,54 +197,35 @@ export default function Dashboard() {
                             fontWeight: '600', 
                             color: '#1e293b',
                             marginBottom: '0.5rem'
-                        }}>Comments</h3>
+                        }}>Collaborators</h3>
                         <p style={{ 
                             color: '#64748b', 
                             fontSize: '0.875rem',
                             lineHeight: '1.5'
-                        }}>Share feedback and collaborate with your team</p>
+                        }}>Team members across projects</p>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                        <div style={{ 
-                            fontSize: '3rem', 
-                            fontWeight: '700', 
-                            background: 'linear-gradient(135deg, #1e88e5 0%, #42a5f5 100%)',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            backgroundClip: 'text',
-                            lineHeight: '1'
-                        }}>{stats.comments}</div>
-                        <Link to="/comments" style={{ textDecoration: 'none' }}>
-                            <button style={{
-                                background: '#f1f5f9',
-                                color: '#1e88e5',
-                                padding: '0.625rem 1.25rem',
-                                borderRadius: '10px',
-                                border: 'none',
-                                fontSize: '0.9rem',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s'
-                            }}
-                            onMouseOver={(e) => {
-                                e.currentTarget.style.background = '#e0f2fe'
-                            }}
-                            onMouseOut={(e) => {
-                                e.currentTarget.style.background = '#f1f5f9'
-                            }}>
-                                View All
-                            </button>
-                        </Link>
-                    </div>
+                    <div style={{ 
+                        fontSize: '3rem', 
+                        fontWeight: '700', 
+                        background: 'linear-gradient(135deg, #1e88e5 0%, #42a5f5 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        backgroundClip: 'text',
+                        lineHeight: '1'
+                    }}>{stats.comments}</div>
                 </div>
             </div>
+
+            {/* Recent Projects Section */}
+            <RecentProjects />
 
             {/* About Section */}
             <div style={{ 
                 background: 'linear-gradient(135deg, #e3f2fd 0%, #f5f5f5 100%)', 
                 borderRadius: '16px',
                 padding: '2rem',
-                border: '1px solid #e5e7eb'
+                border: '1px solid #e5e7eb',
+                marginTop: '3rem'
             }}>
                 <h4 style={{ 
                     fontSize: '1.125rem', 
@@ -291,6 +238,268 @@ export default function Dashboard() {
                     Whether you're working on code, documents, designs, or notes, we make it easy to share, 
                     collaborate, and store your work in one place. Perfect for students, beginners, and hobbyists!
                 </p>
+            </div>
+        </div>
+    )
+}
+
+// Recent Projects Component
+function RecentProjects() {
+    const [projects, setProjects] = React.useState<any[]>([])
+
+    React.useEffect(() => {
+        const allProjects = JSON.parse(localStorage.getItem('collab_projects') || '[]')
+        // Sort by most recently modified (assuming projects have a timestamp or we can use creation order)
+        const recent = allProjects.slice(0, 4) // Show max 4 recent projects
+        setProjects(recent)
+    }, [])
+
+    if (projects.length === 0) return null
+
+    return (
+        <div style={{ marginBottom: '3rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <h3 style={{ fontSize: '1.5rem', fontWeight: '600', color: '#1e293b' }}>Recent Projects</h3>
+                <Link to="/projects" style={{ textDecoration: 'none', color: '#1e88e5', fontWeight: '600', fontSize: '0.95rem' }}>
+                    View All →
+                </Link>
+            </div>
+            <div className="grid" style={{ 
+                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
+                gap: '1.5rem' 
+            }}>
+                {projects.map(project => (
+                    <Link key={project.id} to={`/projects/${project.id}`} style={{ textDecoration: 'none' }}>
+                        <div className="card" style={{ 
+                            padding: '1.5rem',
+                            transition: 'all 0.3s ease',
+                            cursor: 'pointer',
+                            height: '100%'
+                        }}
+                        onMouseOver={(e) => {
+                            e.currentTarget.style.transform = 'translateY(-4px)'
+                            e.currentTarget.style.boxShadow = '0 8px 24px rgba(33, 150, 243, 0.15)'
+                        }}
+                        onMouseOut={(e) => {
+                            e.currentTarget.style.transform = 'translateY(0)'
+                            e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)'
+                        }}>
+                            <div style={{ 
+                                width: '100%',
+                                height: '120px',
+                                background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
+                                borderRadius: '8px',
+                                marginBottom: '1rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '3rem'
+                            }}>
+                                📁
+                            </div>
+                            <h4 style={{ 
+                                fontSize: '1.125rem', 
+                                fontWeight: '600', 
+                                color: '#1e293b',
+                                marginBottom: '0.5rem',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                            }}>{project.name}</h4>
+                            <p className="text-muted text-sm" style={{ marginBottom: '0.75rem' }}>
+                                {project.files?.length || 0} {project.files?.length === 1 ? 'file' : 'files'}
+                            </p>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <span className="badge primary" style={{ fontSize: '0.75rem', padding: '0.25rem 0.75rem' }}>
+                                    Open
+                                </span>
+                            </div>
+                        </div>
+                    </Link>
+                ))}
+            </div>
+        </div>
+    )
+}
+
+// Recent Activity Component
+function RecentActivity() {
+    const [activities, setActivities] = React.useState<any[]>([])
+
+    React.useEffect(() => {
+        const activityLogs = JSON.parse(localStorage.getItem('collab_activity_logs') || '[]')
+        const recent = activityLogs.slice(0, 8) // Show last 8 activities
+        setActivities(recent)
+    }, [])
+
+    if (activities.length === 0) return null
+
+    const getActivityIcon = (type: string) => {
+        const icons: any = {
+            'LOGIN': '🔐',
+            'LOGOUT': '👋',
+            'VIEW_DASHBOARD': '📊',
+            'VIEW_PROJECTS': '📁',
+            'CREATE_PROJECT': '➕',
+            'DELETE_PROJECT': '🗑️',
+            'UPLOAD_FILE': '📤',
+            'EDIT_FILE': '✏️',
+            'DELETE_FILE': '❌',
+            'SAVE_VERSION': '💾',
+            'ADD_COMMENT': '💬',
+            'DELETE_COMMENT': '🗑️',
+            'SEARCH': '🔍'
+        }
+        return icons[type] || '📝'
+    }
+
+    return (
+        <div style={{ marginBottom: '3rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <h3 style={{ fontSize: '1.5rem', fontWeight: '600', color: '#1e293b' }}>Recent Activity</h3>
+                <Link to="/activity" style={{ textDecoration: 'none', color: '#1e88e5', fontWeight: '600', fontSize: '0.95rem' }}>
+                    View All →
+                </Link>
+            </div>
+            <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
+                {activities.map((activity, idx) => (
+                    <div 
+                        key={activity.id} 
+                        style={{ 
+                            padding: '1rem 1.5rem',
+                            borderBottom: idx < activities.length - 1 ? '1px solid #f1f5f9' : 'none',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '1rem',
+                            transition: 'background 0.2s'
+                        }}
+                        onMouseOver={(e) => {
+                            e.currentTarget.style.background = '#f8fafc'
+                        }}
+                        onMouseOut={(e) => {
+                            e.currentTarget.style.background = 'white'
+                        }}
+                    >
+                        <div style={{ 
+                            fontSize: '1.75rem',
+                            flexShrink: 0
+                        }}>
+                            {getActivityIcon(activity.type)}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ 
+                                margin: 0, 
+                                color: '#1e293b',
+                                fontSize: '0.9rem',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                            }}>
+                                {activity.description}
+                            </p>
+                            <p className="text-muted text-xs" style={{ margin: '0.25rem 0 0 0' }}>
+                                {new Date(activity.timestamp).toLocaleString()}
+                            </p>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    )
+}
+
+// Quick Actions Component
+function QuickActionsCard() {
+    return (
+        <div style={{ marginBottom: '3rem' }}>
+            <h3 style={{ fontSize: '1.5rem', fontWeight: '600', color: '#1e293b', marginBottom: '1.5rem' }}>Quick Actions</h3>
+            <div className="grid" style={{ 
+                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', 
+                gap: '1.25rem' 
+            }}>
+                <Link to="/projects?action=upload" style={{ textDecoration: 'none' }}>
+                    <div className="card" style={{ 
+                        padding: '1.5rem',
+                        textAlign: 'center',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease',
+                        background: 'linear-gradient(135deg, #e3f2fd 0%, #f5f5f5 50%)'
+                    }}
+                    onMouseOver={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-4px)'
+                        e.currentTarget.style.boxShadow = '0 8px 24px rgba(33, 150, 243, 0.15)'
+                    }}
+                    onMouseOut={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)'
+                        e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)'
+                    }}>
+                        <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>📤</div>
+                        <h4 style={{ fontSize: '1rem', fontWeight: '600', color: '#1e293b', margin: 0 }}>Upload File</h4>
+                    </div>
+                </Link>
+
+                <Link to="/projects" style={{ textDecoration: 'none' }}>
+                    <div className="card" style={{ 
+                        padding: '1.5rem',
+                        textAlign: 'center',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease',
+                        background: 'linear-gradient(135deg, #f3e5f5 0%, #f5f5f5 50%)'
+                    }}
+                    onMouseOver={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-4px)'
+                        e.currentTarget.style.boxShadow = '0 8px 24px rgba(156, 39, 176, 0.15)'
+                    }}
+                    onMouseOut={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)'
+                        e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)'
+                    }}>
+                        <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🔍</div>
+                        <h4 style={{ fontSize: '1rem', fontWeight: '600', color: '#1e293b', margin: 0 }}>Browse Projects</h4>
+                    </div>
+                </Link>
+
+                <Link to="/activity" style={{ textDecoration: 'none' }}>
+                    <div className="card" style={{ 
+                        padding: '1.5rem',
+                        textAlign: 'center',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease',
+                        background: 'linear-gradient(135deg, #e8f5e9 0%, #f5f5f5 50%)'
+                    }}
+                    onMouseOver={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-4px)'
+                        e.currentTarget.style.boxShadow = '0 8px 24px rgba(76, 175, 80, 0.15)'
+                    }}
+                    onMouseOut={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)'
+                        e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)'
+                    }}>
+                        <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>📊</div>
+                        <h4 style={{ fontSize: '1rem', fontWeight: '600', color: '#1e293b', margin: 0 }}>View Activity</h4>
+                    </div>
+                </Link>
+
+                <Link to="/profile" style={{ textDecoration: 'none' }}>
+                    <div className="card" style={{ 
+                        padding: '1.5rem',
+                        textAlign: 'center',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease',
+                        background: 'linear-gradient(135deg, #fff3e0 0%, #f5f5f5 50%)'
+                    }}
+                    onMouseOver={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-4px)'
+                        e.currentTarget.style.boxShadow = '0 8px 24px rgba(255, 152, 0, 0.15)'
+                    }}
+                    onMouseOut={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)'
+                        e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)'
+                    }}>
+                        <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>👤</div>
+                        <h4 style={{ fontSize: '1rem', fontWeight: '600', color: '#1e293b', margin: 0 }}>Manage Profile</h4>
+                    </div>
+                </Link>
             </div>
         </div>
     )

@@ -195,13 +195,23 @@ function AuthInner() {
 
                 {mode === 'login' && (
                     <div style={{ marginTop: '1rem', textAlign: 'center' }}>
-                        <button 
-                            className="secondary" 
-                            style={{ fontSize: '0.875rem' }}
+                        <span 
+                            style={{ 
+                                fontSize: '0.875rem',
+                                color: '#1e88e5',
+                                cursor: 'pointer',
+                                textDecoration: 'none'
+                            }}
                             onClick={() => setShowReset(true)}
+                            onMouseOver={(e) => {
+                                e.currentTarget.style.textDecoration = 'underline'
+                            }}
+                            onMouseOut={(e) => {
+                                e.currentTarget.style.textDecoration = 'none'
+                            }}
                         >
                             Forgot Password?
-                        </button>
+                        </span>
                     </div>
                 )}
             </div>

@@ -1,5 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
+import { encodeToBase64 } from '../utils/helpers'
 
 export default function Versions() {
     const [versions, setVersions] = React.useState<any[]>(() => JSON.parse(localStorage.getItem('collab_versions') || '[]'))
