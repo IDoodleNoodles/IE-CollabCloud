@@ -53,7 +53,7 @@ export default function Navbar() {
         />
       </form>
 
-      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginLeft: 'auto' }}>
         <Link to="/profile">
           {profile.name || user.name || user.email}
         </Link>

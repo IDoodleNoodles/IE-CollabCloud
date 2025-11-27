@@ -1,13 +1,13 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import ProtectedRoute from '../components/ProtectedRoute'
 
-import Dashboard from '../pages/dashboard/Dashboard'
-import Projects from '../pages/projects/Projects'
-import ProjectDetail from '../pages/projects/Projects'
+import Dashboard from '../pages/Dashboard'
+import Projects from '../pages/Projects'
+import ProjectDetail from '../pages/ProjectDetail'
 import Collaborators from '../pages/Collaborators'
 import Editor from '../pages/Editor'
 import Search from '../pages/Search'
-import Profile from '../pages/profile/Profile'
+import Profile from '../pages/Profile'
 import ActivityLogs from '../pages/ActivityLogs'
 
 export default function AppRoutes() {
