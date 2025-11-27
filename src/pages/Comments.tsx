@@ -38,6 +38,10 @@ export default function Comments() {
         ActivityLogger.log(ActivityTypes.DELETE_COMMENT, `Deleted comment`)
     }
 
+    function getTimeAgo(ts: number): React.ReactNode {
+        throw new Error('Function not implemented.');
+    }
+
     return (
         <div>
             <div style={{ marginBottom: '2rem' }}>
