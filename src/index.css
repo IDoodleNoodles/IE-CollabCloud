@@ -349,3 +349,24 @@ a:hover {
         grid-template-columns: 1fr;
     }
 }
+
+/* Auth page input placeholder styling */
+input::placeholder {
+    color: #9CA3AF;
+    opacity: 1;
+}
+
+input::-webkit-input-placeholder {
+    color: #9CA3AF;
+    opacity: 1;
+}
+
+input::-moz-placeholder {
+    color: #9CA3AF;
+    opacity: 1;
+}
+
+input:-ms-input-placeholder {
+    color: #9CA3AF;
+    opacity: 1;
+}

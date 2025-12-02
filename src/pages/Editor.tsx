@@ -13,27 +13,68 @@ export default function Editor() {
     const [showCommitDialog, setShowCommitDialog] = React.useState(false)
     const [lineCount, setLineCount] = React.useState(1)
     const [charCount, setCharCount] = React.useState(0)
+    const isReadOnly = new URLSearchParams(window.location.search).get('readonly') === 'true'
 
     React.useEffect(() => {
+        console.log('Editor loading:', { projectId, fileId })
+        const urlParams = new URLSearchParams(window.location.search)
+        const versionId = urlParams.get('versionId')
+        
         const all = JSON.parse(localStorage.getItem('collab_projects') || '[]')
+        console.log('All projects:', all)
         const p = all.find((x: any) => x.id === projectId)
+        console.log('Found project:', p)
         const f = p?.files.find((x: any) => x.id === fileId)
+        console.log('Found file:', f)
+        
+        if (!p) {
+            console.error('Project not found')
+            return
+        }
+        
+        if (!f) {
+            console.error('File not found')
+            return
+        }
+        
         setMeta({ projectId, fileId, name: f?.name, type: f?.type, projectName: p?.name })
-        if (f) {
-            ActivityLogger.log(ActivityTypes.EDIT_FILE, `Opened file for editing: ${f.name}`)
-            // try to decode dataUrl as text if text-like
+        
+        // If viewing a specific version, load that version's content
+        if (versionId && isReadOnly) {
+            const versions = JSON.parse(localStorage.getItem('collab_versions') || '[]')
+            const version = versions.find((v: any) => v.id === versionId)
+            if (version) {
+                setContent(version.content)
+                setLineCount(version.content.split('\n').length)
+                setCharCount(version.content.length)
+                ActivityLogger.log(ActivityTypes.EDIT_FILE, `Viewing version: ${version.message}`)
+                return
+            }
+        }
+        
+        ActivityLogger.log(ActivityTypes.EDIT_FILE, `Opened file for editing: ${f.name}`)
+        
+        // try to decode dataUrl as text if text-like
+        try {
             if (f.dataUrl?.startsWith('data:text') || f.name?.match(/\.(txt|md|py|js|json|css|html|ts|tsx|jsx)$/i)) {
                 // decode
                 const arr = f.dataUrl.split(',')
-                const text = decodeFromBase64(arr[1])
-                setContent(text)
-                setLineCount(text.split('\n').length)
-                setCharCount(text.length)
+                if (arr[1]) {
+                    const text = decodeFromBase64(arr[1])
+                    setContent(text)
+                    setLineCount(text.split('\n').length)
+                    setCharCount(text.length)
+                } else {
+                    setContent('// Empty file')
+                }
             } else {
-                setContent('// binary or preview-only file')
+                setContent('// Binary or preview-only file')
             }
+        } catch (error) {
+            console.error('Error decoding file:', error)
+            setContent('// Error loading file content')
         }
-    }, [projectId, fileId])
+    }, [projectId, fileId, isReadOnly])
 
     React.useEffect(() => {
         const handler = (e: BeforeUnloadEvent) => {
@@ -82,7 +123,12 @@ export default function Editor() {
 
     if (!meta) {
         return (
-            <div className="empty-state">
+            <div style={{ 
+                padding: '4rem 2rem', 
+                textAlign: 'center',
+                background: '#F0F4F9',
+                minHeight: '100vh'
+            }}>
                 <div style={{ fontSize: '4rem' }}>⏳</div>
                 <h3>Loading file...</h3>
             </div>
@@ -90,29 +136,88 @@ export default function Editor() {
     }
 
     return (
-        <div>
+        <div style={{ 
+            padding: '2rem 3rem',
+            background: '#F0F4F9',
+            minHeight: '100vh'
+        }}>
             <div style={{ marginBottom: '1.5rem' }}>
-                <button className="secondary" onClick={handleClose} style={{ marginBottom: '1rem' }}>
+                <button 
+                    onClick={handleClose} 
+                    style={{ 
+                        padding: '0.625rem 1.25rem',
+                        borderRadius: '8px',
+                        border: '1px solid #E5E7EB',
+                        background: 'white',
+                        color: '#5F6368',
+                        fontSize: '0.875rem',
+                        fontWeight: '500',
+                        cursor: 'pointer',
+                        marginBottom: '1rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem'
+                    }}
+                >
                     ← Back
                 </button>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                     <div>
-                        <h2 style={{ marginBottom: '0.25rem' }}>{meta.name}</h2>
-                        <p className="text-muted">Project: {meta.projectName}</p>
+                        <h2 style={{ 
+                            marginBottom: '0.25rem',
+                            fontSize: '1.875rem',
+                            fontWeight: '600',
+                            color: '#202124'
+                        }}>{meta.name}</h2>
+                        <p style={{ 
+                            color: '#5F6368',
+                            fontSize: '0.875rem',
+                            margin: 0
+                        }}>Project: {meta.projectName}</p>
                     </div>
                     <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                        {unsaved && <span className="badge warning">Unsaved changes</span>}
-                        <span className="badge">{lineCount} lines</span>
-                        <span className="badge">{charCount} chars</span>
+                        {unsaved && (
+                            <span style={{
+                                padding: '0.25rem 0.75rem',
+                                borderRadius: '12px',
+                                background: '#FEF3C7',
+                                color: '#92400E',
+                                fontSize: '0.75rem',
+                                fontWeight: '500'
+                            }}>Unsaved changes</span>
+                        )}
+                        <span style={{
+                            padding: '0.25rem 0.75rem',
+                            borderRadius: '12px',
+                            background: '#E8F0FE',
+                            color: '#4285F4',
+                            fontSize: '0.75rem',
+                            fontWeight: '500'
+                        }}>{lineCount} lines</span>
+                        <span style={{
+                            padding: '0.25rem 0.75rem',
+                            borderRadius: '12px',
+                            background: '#E8F0FE',
+                            color: '#4285F4',
+                            fontSize: '0.75rem',
+                            fontWeight: '500'
+                        }}>{charCount} chars</span>
                     </div>
                 </div>
             </div>
 
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ 
+                padding: 0, 
+                overflow: 'hidden',
+                background: 'white',
+                borderRadius: '12px',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
+                border: '1px solid #E5E7EB'
+            }}>
                 <div style={{ 
-                    background: 'var(--gray-100)', 
+                    background: '#F9FAFB', 
                     padding: '0.75rem 1rem', 
-                    borderBottom: '2px solid var(--gray-200)',
+                    borderBottom: '2px solid #E5E7EB',
                     display: 'flex',
                     gap: '0.5rem',
                     alignItems: 'center'
@@ -120,11 +225,12 @@ export default function Editor() {
                     <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ef4444' }}></div>
                     <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#f59e0b' }}></div>
                     <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#10b981' }}></div>
-                    <span style={{ marginLeft: '1rem', fontSize: '0.875rem', color: 'var(--gray-600)' }}>{meta.name}</span>
+                    <span style={{ marginLeft: '1rem', fontSize: '0.875rem', color: '#5F6368' }}>{meta.name}</span>
                 </div>
                 <textarea 
                     value={content} 
-                    onChange={e => { setContent(e.target.value); setUnsaved(true) }} 
+                    onChange={e => { if (!isReadOnly) { setContent(e.target.value); setUnsaved(true) } }} 
+                    readOnly={isReadOnly}
                     style={{ 
                         width: '100%', 
                         height: '500px',
@@ -134,9 +240,10 @@ export default function Editor() {
                         fontSize: '0.95rem',
                         lineHeight: '1.6',
                         resize: 'vertical',
-                        background: '#fafafa'
+                        background: isReadOnly ? '#f5f5f5' : '#fafafa',
+                        cursor: isReadOnly ? 'default' : 'text'
                     }}
-                    placeholder="Start typing..."
+                    placeholder={isReadOnly ? "Read-only view" : "Start typing..."}
                 />
             </div>
 
@@ -151,15 +258,41 @@ export default function Editor() {
                     display: 'flex',
                     justifyContent: 'center',
                     alignItems: 'center',
-                    zIndex: 1000
+                    zIndex: 1000,
+                    padding: '2rem'
                 }}>
-                    <div className="card" style={{ maxWidth: '500px', width: '90%' }}>
-                        <h3>Commit Changes</h3>
-                        <p className="text-muted" style={{ marginBottom: '1rem' }}>
+                    <div style={{ 
+                        maxWidth: '500px', 
+                        width: '90%',
+                        background: 'white',
+                        borderRadius: '12px',
+                        padding: '2rem',
+                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+                    }}>
+                        <h3 style={{ 
+                            fontSize: '20px',
+                            fontWeight: '600',
+                            color: '#202124',
+                            marginBottom: '0.5rem'
+                        }}>Commit Changes</h3>
+                        <p style={{ 
+                            color: '#5F6368',
+                            fontSize: '14px',
+                            marginBottom: '1.5rem' 
+                        }}>
                             Describe what changes you made to this file
                         </p>
-                        <div className="form-group">
-                            <label htmlFor="commit-message">Commit Message</label>
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <label 
+                                htmlFor="commit-message"
+                                style={{
+                                    display: 'block',
+                                    fontSize: '14px',
+                                    fontWeight: '500',
+                                    color: '#202124',
+                                    marginBottom: '0.5rem'
+                                }}
+                            >Commit Message</label>
                             <input
                                 id="commit-message"
                                 type="text"
@@ -168,13 +301,50 @@ export default function Editor() {
                                 onChange={e => setCommitMessage(e.target.value)}
                                 onKeyDown={e => e.key === 'Enter' && handleSave()}
                                 autoFocus
+                                style={{
+                                    width: '100%',
+                                    padding: '0.75rem',
+                                    fontSize: '14px',
+                                    border: '1px solid #DADCE0',
+                                    borderRadius: '8px',
+                                    outline: 'none',
+                                    boxSizing: 'border-box',
+                                    fontFamily: 'inherit'
+                                }}
                             />
                         </div>
-                        <div className="btn-group">
-                            <button className="success" onClick={handleSave} disabled={!commitMessage.trim()}>
-                                Save & Commit
+                        <div style={{ display: 'flex', gap: '0.75rem' }}>
+                            <button 
+                                onClick={handleSave} 
+                                disabled={!commitMessage.trim()}
+                                style={{
+                                    flex: 1,
+                                    padding: '0.75rem',
+                                    background: !commitMessage.trim() ? '#E5E7EB' : '#4285F4',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '14px',
+                                    fontWeight: '500',
+                                    cursor: !commitMessage.trim() ? 'not-allowed' : 'pointer'
+                                }}
+                            >
+                                Save Changes
                             </button>
-                            <button className="secondary" onClick={() => setShowCommitDialog(false)}>
+                            <button 
+                                onClick={() => setShowCommitDialog(false)}
+                                style={{
+                                    flex: 1,
+                                    padding: '0.75rem',
+                                    background: 'white',
+                                    color: '#5F6368',
+                                    border: '1px solid #DADCE0',
+                                    borderRadius: '8px',
+                                    fontSize: '14px',
+                                    fontWeight: '500',
+                                    cursor: 'pointer'
+                                }}
+                            >
                                 Cancel
                             </button>
                         </div>
@@ -182,17 +352,49 @@ export default function Editor() {
                 </div>
             )}
 
-            <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-                <div className="btn-group">
-                    <button className="success" onClick={() => setShowCommitDialog(true)} disabled={!unsaved}>
-                        Save & Commit
-                    </button>
-                    <button className="secondary" onClick={handleClose}>
-                        Close Editor
+            <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem', justifyContent: 'space-between', flexWrap: 'wrap', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    {!isReadOnly && (
+                        <button 
+                            onClick={() => setShowCommitDialog(true)} 
+                            disabled={!unsaved}
+                            style={{
+                                padding: '0.75rem 1.5rem',
+                                background: !unsaved ? '#E5E7EB' : '#4285F4',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: '14px',
+                                fontWeight: '500',
+                                cursor: !unsaved ? 'not-allowed' : 'pointer'
+                            }}
+                        >
+                            Save Changes
+                        </button>
+                    )}
+                    <button 
+                        onClick={handleClose}
+                        style={{
+                            padding: '0.75rem 1.5rem',
+                            background: 'white',
+                            color: '#5F6368',
+                            border: '1px solid #DADCE0',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        {isReadOnly ? 'Close' : 'Close Editor'}
                     </button>
                 </div>
-                <div className="text-muted text-sm" style={{ display: 'flex', alignItems: 'center' }}>
-                    {unsaved ? 'Remember to save your changes' : 'All changes saved'}
+                <div style={{ 
+                    fontSize: '0.875rem',
+                    color: '#5F6368',
+                    display: 'flex', 
+                    alignItems: 'center' 
+                }}>
+                    {isReadOnly ? 'Read-only view' : (unsaved ? 'Remember to save your changes' : 'All changes saved')}
                 </div>
             </div>
         </div>

@@ -121,6 +121,23 @@ const api = {
         return all.find((p: Project) => p.id === id)
     },
     
+    async updateProject(id: string, updates: Partial<Project>): Promise<Project | undefined> {
+        if (API_BASE) {
+            return restFetch(`/projects/${id}`, { 
+                method: 'PATCH', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify(updates) 
+            })
+        }
+        const all: Project[] = JSON.parse(localStorage.getItem('collab_projects') || '[]')
+        const project = all.find((p: Project) => p.id === id)
+        if (project) {
+            Object.assign(project, updates)
+            localStorage.setItem('collab_projects', JSON.stringify(all))
+        }
+        return project
+    },
+    
     async deleteProject(id: string): Promise<{ ok: boolean }> {
         if (API_BASE) return restFetch(`/projects/${id}`, { method: 'DELETE' })
         const all: Project[] = JSON.parse(localStorage.getItem('collab_projects') || '[]')
