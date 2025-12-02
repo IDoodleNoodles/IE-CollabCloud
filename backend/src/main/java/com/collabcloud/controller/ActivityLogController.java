@@ -1,63 +1,65 @@
 package com.collabcloud.controller;
 
-import com.collabcloud.model.ActivityLog;
-import com.collabcloud.model.Project;
-import com.collabcloud.repository.ActivityLogRepository;
-import com.collabcloud.repository.ProjectRepository;
+import com.collabcloud.entity.ActivityLogEntity;
+import com.collabcloud.service.ActivityLogService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/activitylogs")
+@RequestMapping("/api/activity-logs")
 public class ActivityLogController {
-    private final ActivityLogRepository activityLogRepository;
-    private final ProjectRepository projectRepository;
 
-    public ActivityLogController(ActivityLogRepository activityLogRepository, ProjectRepository projectRepository) {
-        this.activityLogRepository = activityLogRepository;
-        this.projectRepository = projectRepository;
-    }
+    @Autowired
+    private ActivityLogService activityLogService;
 
     @GetMapping
-    public List<ActivityLog> getAll() {
-        return activityLogRepository.findAll();
+    public ResponseEntity<List<ActivityLogEntity>> getAllActivityLogs() {
+        List<ActivityLogEntity> activityLogs = activityLogService.getAllActivityLogs();
+        return ResponseEntity.ok(activityLogs);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ActivityLog> getById(@PathVariable Long id) {
-        Optional<ActivityLog> a = activityLogRepository.findById(id);
-        return a.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+    public ResponseEntity<ActivityLogEntity> getActivityLogById(@PathVariable("id") Long activityId) {
+        return activityLogService.getActivityLogById(activityId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/project/{projectId}")
+    public ResponseEntity<List<ActivityLogEntity>> getActivityLogsByProjectId(
+            @PathVariable("projectId") Long projectId) {
+        List<ActivityLogEntity> activityLogs = activityLogService.getActivityLogsByProjectId(projectId);
+        return ResponseEntity.ok(activityLogs);
+    }
+
+    @GetMapping("/project/{projectId}/ordered")
+    public ResponseEntity<List<ActivityLogEntity>> getActivityLogsByProjectIdOrdered(
+            @PathVariable("projectId") Long projectId) {
+        try {
+            List<ActivityLogEntity> activityLogs = activityLogService.getActivityLogsByProjectIdOrdered(projectId);
+            return ResponseEntity.ok(activityLogs);
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @PostMapping
-    public ResponseEntity<ActivityLog> create(@RequestBody ActivityLog payload) {
-        if (payload.getProject() != null && payload.getProject().getProjectID() != null) {
-            projectRepository.findById(payload.getProject().getProjectID()).ifPresent(payload::setProject);
-        }
-        ActivityLog saved = activityLogRepository.save(payload);
-        return ResponseEntity.ok(saved);
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<ActivityLog> update(@PathVariable Long id, @RequestBody ActivityLog payload) {
-        return activityLogRepository.findById(id).map(existing -> {
-            existing.setActionType(payload.getActionType());
-            existing.setTimeStamp(payload.getTimeStamp());
-            if (payload.getProject() != null && payload.getProject().getProjectID() != null) {
-                projectRepository.findById(payload.getProject().getProjectID()).ifPresent(existing::setProject);
-            }
-            return ResponseEntity.ok(activityLogRepository.save(existing));
-        }).orElseGet(() -> ResponseEntity.notFound().build());
+    public ResponseEntity<ActivityLogEntity> createActivityLog(@RequestBody ActivityLogEntity activityLog) {
+        ActivityLogEntity createdActivityLog = activityLogService.createActivityLog(activityLog);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdActivityLog);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        if (!activityLogRepository.existsById(id))
+    public ResponseEntity<Void> deleteActivityLog(@PathVariable("id") Long activityId) {
+        try {
+            activityLogService.deleteActivityLog(activityId);
+            return ResponseEntity.noContent().build();
+        } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
-        activityLogRepository.deleteById(id);
-        return ResponseEntity.noContent().build();
+        }
     }
 }

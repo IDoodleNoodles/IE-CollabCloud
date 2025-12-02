@@ -1,63 +1,75 @@
 package com.collabcloud.controller;
 
-import com.collabcloud.model.Version;
-import com.collabcloud.model.FileEntity;
-import com.collabcloud.repository.VersionRepository;
-import com.collabcloud.repository.FileRepository;
+import com.collabcloud.entity.VersionEntity;
+import com.collabcloud.service.VersionService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/versions")
 public class VersionController {
-    private final VersionRepository versionRepository;
-    private final FileRepository fileRepository;
 
-    public VersionController(VersionRepository versionRepository, FileRepository fileRepository) {
-        this.versionRepository = versionRepository;
-        this.fileRepository = fileRepository;
-    }
+    @Autowired
+    private VersionService versionService;
 
     @GetMapping
-    public List<Version> getAll() {
-        return versionRepository.findAll();
+    public ResponseEntity<List<VersionEntity>> getAllVersions() {
+        List<VersionEntity> versions = versionService.getAllVersions();
+        return ResponseEntity.ok(versions);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Version> getById(@PathVariable Long id) {
-        Optional<Version> v = versionRepository.findById(id);
-        return v.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+    public ResponseEntity<VersionEntity> getVersionById(@PathVariable("id") Long versionId) {
+        return versionService.getVersionById(versionId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/file/{fileId}")
+    public ResponseEntity<List<VersionEntity>> getVersionsByFileId(@PathVariable("fileId") Long fileId) {
+        List<VersionEntity> versions = versionService.getVersionsByFileId(fileId);
+        return ResponseEntity.ok(versions);
+    }
+
+    @GetMapping("/file/{fileId}/ordered")
+    public ResponseEntity<List<VersionEntity>> getVersionsByFileIdOrdered(@PathVariable("fileId") Long fileId) {
+        try {
+            List<VersionEntity> versions = versionService.getVersionsByFileIdOrdered(fileId);
+            return ResponseEntity.ok(versions);
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @PostMapping
-    public ResponseEntity<Version> create(@RequestBody Version payload) {
-        if (payload.getFile() != null && payload.getFile().getFileID() != null) {
-            fileRepository.findById(payload.getFile().getFileID()).ifPresent(payload::setFile);
-        }
-        Version saved = versionRepository.save(payload);
-        return ResponseEntity.ok(saved);
+    public ResponseEntity<VersionEntity> createVersion(@RequestBody VersionEntity version) {
+        VersionEntity createdVersion = versionService.createVersion(version);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdVersion);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Version> update(@PathVariable Long id, @RequestBody Version payload) {
-        return versionRepository.findById(id).map(existing -> {
-            existing.setCommitMessage(payload.getCommitMessage());
-            existing.setTimeStamp(payload.getTimeStamp());
-            if (payload.getFile() != null && payload.getFile().getFileID() != null) {
-                fileRepository.findById(payload.getFile().getFileID()).ifPresent(existing::setFile);
-            }
-            return ResponseEntity.ok(versionRepository.save(existing));
-        }).orElseGet(() -> ResponseEntity.notFound().build());
+    public ResponseEntity<VersionEntity> updateVersion(
+            @PathVariable("id") Long versionId,
+            @RequestBody VersionEntity versionDetails) {
+        try {
+            VersionEntity updatedVersion = versionService.updateVersion(versionId, versionDetails);
+            return ResponseEntity.ok(updatedVersion);
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        if (!versionRepository.existsById(id))
+    public ResponseEntity<Void> deleteVersion(@PathVariable("id") Long versionId) {
+        try {
+            versionService.deleteVersion(versionId);
+            return ResponseEntity.noContent().build();
+        } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
-        versionRepository.deleteById(id);
-        return ResponseEntity.noContent().build();
+        }
     }
 }

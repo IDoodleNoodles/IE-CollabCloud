@@ -21,6 +21,10 @@ export default function App() {
     const [searchQuery, setSearchQuery] = React.useState('')
     const [profile, setProfile] = React.useState<any>(() => JSON.parse(localStorage.getItem('collab_profile') || '{}'))
 
+    React.useEffect(() => {
+        console.log('[App] Current user session:', user)
+    }, [user])
+
     // Update profile when localStorage changes or when navigating to profile page
     React.useEffect(() => {
         if (location.pathname === '/profile') {
@@ -88,15 +92,15 @@ export default function App() {
                     }}>CollabCloud</Link>
 
                     <form onSubmit={handleSearch} style={{ flex: 1, maxWidth: '500px', margin: '0 auto' }}>
-                        <input 
-                            type="text" 
-                            placeholder="Search files..." 
+                        <input
+                            type="text"
+                            placeholder="Search files..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            style={{ 
-                                width: '100%', 
-                                padding: '0.875rem 1.5rem', 
-                                borderRadius: '12px', 
+                            style={{
+                                width: '100%',
+                                padding: '0.875rem 1.5rem',
+                                borderRadius: '12px',
                                 border: '2px solid #cbd5e1',
                                 fontSize: '1rem',
                                 outline: 'none',
@@ -137,15 +141,15 @@ export default function App() {
                             cursor: 'pointer',
                             transition: 'all 0.2s'
                         }}
-                        onMouseOver={(e) => {
-                            e.currentTarget.style.background = '#f8fafc'
-                            e.currentTarget.style.borderColor = '#cbd5e1'
-                        }}
-                        onMouseOut={(e) => {
-                            e.currentTarget.style.background = 'white'
-                            e.currentTarget.style.borderColor = '#e5e7eb'
-                        }}
-                        onClick={handleLogout}>Log out</button>
+                            onMouseOver={(e) => {
+                                e.currentTarget.style.background = '#f8fafc'
+                                e.currentTarget.style.borderColor = '#cbd5e1'
+                            }}
+                            onMouseOut={(e) => {
+                                e.currentTarget.style.background = 'white'
+                                e.currentTarget.style.borderColor = '#e5e7eb'
+                            }}
+                            onClick={handleLogout}>Log out</button>
                     </div>
                 </nav>
             )}
@@ -159,11 +163,11 @@ export default function App() {
                         padding: '2rem 1.25rem',
                         overflowY: 'auto'
                     }}>
-                        <h3 style={{ 
-                            fontSize: '0.75rem', 
-                            textTransform: 'uppercase', 
-                            color: '#94a3b8', 
-                            marginBottom: '1.25rem', 
+                        <h3 style={{
+                            fontSize: '0.75rem',
+                            textTransform: 'uppercase',
+                            color: '#94a3b8',
+                            marginBottom: '1.25rem',
                             paddingLeft: '0.75rem',
                             fontWeight: '600',
                             letterSpacing: '0.5px'
@@ -180,16 +184,16 @@ export default function App() {
                                 fontSize: '0.95rem',
                                 display: 'block'
                             }}
-                            onMouseOver={(e) => {
-                                if (location.pathname !== '/') {
-                                    e.currentTarget.style.background = '#f8fafc'
-                                }
-                            }}
-                            onMouseOut={(e) => {
-                                if (location.pathname !== '/') {
-                                    e.currentTarget.style.background = 'transparent'
-                                }
-                            }}>Dashboard</Link>
+                                onMouseOver={(e) => {
+                                    if (location.pathname !== '/') {
+                                        e.currentTarget.style.background = '#f8fafc'
+                                    }
+                                }}
+                                onMouseOut={(e) => {
+                                    if (location.pathname !== '/') {
+                                        e.currentTarget.style.background = 'transparent'
+                                    }
+                                }}>Dashboard</Link>
                             <Link to="/projects?action=upload" style={{
                                 padding: '0.875rem 0.75rem',
                                 borderRadius: '10px',
@@ -201,16 +205,16 @@ export default function App() {
                                 fontSize: '0.95rem',
                                 display: 'block'
                             }}
-                            onMouseOver={(e) => {
-                                if (!(location.pathname === '/projects' && location.search.includes('upload'))) {
-                                    e.currentTarget.style.background = '#f8fafc'
-                                }
-                            }}
-                            onMouseOut={(e) => {
-                                if (!(location.pathname === '/projects' && location.search.includes('upload'))) {
-                                    e.currentTarget.style.background = 'transparent'
-                                }
-                            }}>Upload Project</Link>
+                                onMouseOver={(e) => {
+                                    if (!(location.pathname === '/projects' && location.search.includes('upload'))) {
+                                        e.currentTarget.style.background = '#f8fafc'
+                                    }
+                                }}
+                                onMouseOut={(e) => {
+                                    if (!(location.pathname === '/projects' && location.search.includes('upload'))) {
+                                        e.currentTarget.style.background = 'transparent'
+                                    }
+                                }}>Upload Project</Link>
                             <Link to="/projects" style={{
                                 padding: '0.875rem 0.75rem',
                                 borderRadius: '10px',
@@ -222,16 +226,16 @@ export default function App() {
                                 fontSize: '0.95rem',
                                 display: 'block'
                             }}
-                            onMouseOver={(e) => {
-                                if (!(location.pathname === '/projects' && !location.search.includes('upload'))) {
-                                    e.currentTarget.style.background = '#f8fafc'
-                                }
-                            }}
-                            onMouseOut={(e) => {
-                                if (!(location.pathname === '/projects' && !location.search.includes('upload'))) {
-                                    e.currentTarget.style.background = 'transparent'
-                                }
-                            }}>View Projects</Link>
+                                onMouseOver={(e) => {
+                                    if (!(location.pathname === '/projects' && !location.search.includes('upload'))) {
+                                        e.currentTarget.style.background = '#f8fafc'
+                                    }
+                                }}
+                                onMouseOut={(e) => {
+                                    if (!(location.pathname === '/projects' && !location.search.includes('upload'))) {
+                                        e.currentTarget.style.background = 'transparent'
+                                    }
+                                }}>View Projects</Link>
                             <Link to="/comments" style={{
                                 padding: '0.875rem 0.75rem',
                                 borderRadius: '10px',
@@ -243,16 +247,16 @@ export default function App() {
                                 fontSize: '0.95rem',
                                 display: 'block'
                             }}
-                            onMouseOver={(e) => {
-                                if (location.pathname !== '/comments') {
-                                    e.currentTarget.style.background = '#f8fafc'
-                                }
-                            }}
-                            onMouseOut={(e) => {
-                                if (location.pathname !== '/comments') {
-                                    e.currentTarget.style.background = 'transparent'
-                                }
-                            }}>Add Comment</Link>
+                                onMouseOver={(e) => {
+                                    if (location.pathname !== '/comments') {
+                                        e.currentTarget.style.background = '#f8fafc'
+                                    }
+                                }}
+                                onMouseOut={(e) => {
+                                    if (location.pathname !== '/comments') {
+                                        e.currentTarget.style.background = 'transparent'
+                                    }
+                                }}>Add Comment</Link>
                             <Link to="/versions" style={{
                                 padding: '0.875rem 0.75rem',
                                 borderRadius: '10px',
@@ -264,16 +268,16 @@ export default function App() {
                                 fontSize: '0.95rem',
                                 display: 'block'
                             }}
-                            onMouseOver={(e) => {
-                                if (location.pathname !== '/versions') {
-                                    e.currentTarget.style.background = '#f8fafc'
-                                }
-                            }}
-                            onMouseOut={(e) => {
-                                if (location.pathname !== '/versions') {
-                                    e.currentTarget.style.background = 'transparent'
-                                }
-                            }}>View Versions</Link>
+                                onMouseOver={(e) => {
+                                    if (location.pathname !== '/versions') {
+                                        e.currentTarget.style.background = '#f8fafc'
+                                    }
+                                }}
+                                onMouseOut={(e) => {
+                                    if (location.pathname !== '/versions') {
+                                        e.currentTarget.style.background = 'transparent'
+                                    }
+                                }}>View Versions</Link>
                             <Link to="/activity" style={{
                                 padding: '0.875rem 0.75rem',
                                 borderRadius: '10px',
@@ -285,16 +289,16 @@ export default function App() {
                                 fontSize: '0.95rem',
                                 display: 'block'
                             }}
-                            onMouseOver={(e) => {
-                                if (location.pathname !== '/activity') {
-                                    e.currentTarget.style.background = '#f8fafc'
-                                }
-                            }}
-                            onMouseOut={(e) => {
-                                if (location.pathname !== '/activity') {
-                                    e.currentTarget.style.background = 'transparent'
-                                }
-                            }}>Activity Logs</Link>
+                                onMouseOver={(e) => {
+                                    if (location.pathname !== '/activity') {
+                                        e.currentTarget.style.background = '#f8fafc'
+                                    }
+                                }}
+                                onMouseOut={(e) => {
+                                    if (location.pathname !== '/activity') {
+                                        e.currentTarget.style.background = 'transparent'
+                                    }
+                                }}>Activity Logs</Link>
                             <Link to="/profile" style={{
                                 padding: '0.875rem 0.75rem',
                                 borderRadius: '10px',
@@ -306,33 +310,33 @@ export default function App() {
                                 fontSize: '0.95rem',
                                 display: 'block'
                             }}
-                            onMouseOver={(e) => {
-                                if (location.pathname !== '/profile') {
-                                    e.currentTarget.style.background = '#f8fafc'
-                                }
-                            }}
-                            onMouseOut={(e) => {
-                                if (location.pathname !== '/profile') {
-                                    e.currentTarget.style.background = 'transparent'
-                                }
-                            }}>Manage Profile</Link>
+                                onMouseOver={(e) => {
+                                    if (location.pathname !== '/profile') {
+                                        e.currentTarget.style.background = '#f8fafc'
+                                    }
+                                }}
+                                onMouseOut={(e) => {
+                                    if (location.pathname !== '/profile') {
+                                        e.currentTarget.style.background = 'transparent'
+                                    }
+                                }}>Manage Profile</Link>
                         </nav>
                     </aside>
                 )}
                 <div className="content-wrapper" style={{ flex: 1, overflow: 'auto' }}>
                     <Routes>
-                    <Route path="/auth" element={user ? <Navigate to="/" replace /> : <Auth />} />
-                    <Route path="/" element={user ? <Dashboard /> : <Navigate to="/auth" replace />} />
-                    <Route path="/projects" element={user ? <Projects /> : <Navigate to="/auth" replace />} />
-                    <Route path="/projects/:id" element={user ? <ProjectDetail /> : <Navigate to="/auth" replace />} />
-                    <Route path="/projects/:id/collaborators" element={user ? <Collaborators /> : <Navigate to="/auth" replace />} />
-                    <Route path="/editor/:projectId/:fileId" element={user ? <Editor /> : <Navigate to="/auth" replace />} />
-                    <Route path="/search" element={user ? <Search /> : <Navigate to="/auth" replace />} />
-                    <Route path="/versions" element={user ? <Versions /> : <Navigate to="/auth" replace />} />
-                    <Route path="/comments" element={user ? <Comments /> : <Navigate to="/auth" replace />} />
-                    <Route path="/profile" element={user ? <Profile /> : <Navigate to="/auth" replace />} />
-                    <Route path="/activity" element={user ? <ActivityLogs /> : <Navigate to="/auth" replace />} />
-                    <Route path="*" element={<Navigate to={user ? "/" : "/auth"} replace />} />
+                        <Route path="/auth" element={user ? <Navigate to="/" replace /> : <Auth />} />
+                        <Route path="/" element={user ? <Dashboard /> : <Navigate to="/auth" replace />} />
+                        <Route path="/projects" element={user ? <Projects /> : <Navigate to="/auth" replace />} />
+                        <Route path="/projects/:id" element={user ? <ProjectDetail /> : <Navigate to="/auth" replace />} />
+                        <Route path="/projects/:id/collaborators" element={user ? <Collaborators /> : <Navigate to="/auth" replace />} />
+                        <Route path="/editor/:projectId/:fileId" element={user ? <Editor /> : <Navigate to="/auth" replace />} />
+                        <Route path="/search" element={user ? <Search /> : <Navigate to="/auth" replace />} />
+                        <Route path="/versions" element={user ? <Versions /> : <Navigate to="/auth" replace />} />
+                        <Route path="/comments" element={user ? <Comments /> : <Navigate to="/auth" replace />} />
+                        <Route path="/profile" element={user ? <Profile /> : <Navigate to="/auth" replace />} />
+                        <Route path="/activity" element={user ? <ActivityLogs /> : <Navigate to="/auth" replace />} />
+                        <Route path="*" element={<Navigate to={user ? "/" : "/auth"} replace />} />
                     </Routes>
                 </div>
             </div>

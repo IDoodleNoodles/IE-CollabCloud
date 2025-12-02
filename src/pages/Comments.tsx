@@ -1,41 +1,55 @@
 import React from 'react'
 import { ActivityLogger, ActivityTypes } from '../services/activityLogger'
+import { getTimeAgo } from '../utils/helpers'
+import api from '../services/api'
 
 type Comment = { id: string; projectId?: string; text: string; author: string; ts: number }
 
 export default function Comments() {
-    const [comments, setComments] = React.useState<Comment[]>(() => JSON.parse(localStorage.getItem('collab_comments') || '[]'))
+    const [comments, setComments] = React.useState<Comment[]>([])
     const [text, setText] = React.useState('')
+    const [loading, setLoading] = React.useState(true)
 
     React.useEffect(() => {
-        const handler = (e: StorageEvent) => {
-            if (e.key === 'collab_comments') setComments(JSON.parse(e.newValue || '[]'))
-        }
-        window.addEventListener('storage', handler)
-        return () => window.removeEventListener('storage', handler)
+        loadComments()
     }, [])
 
-    function add() {
+    async function loadComments() {
+        try {
+            const data = await api.getComments()
+            setComments(data || [])
+        } catch (err: any) {
+            console.error('Error loading comments:', err)
+            setComments([])
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    async function add() {
         if (!text.trim()) {
             alert('Please enter a comment')
             return
         }
-        const author = localStorage.getItem('collab_user') ? JSON.parse(localStorage.getItem('collab_user')!).email : 'Anonymous'
-        const c = { id: 'c_' + Date.now(), text, author, ts: Date.now() }
-        const next = [c, ...comments]
-        localStorage.setItem('collab_comments', JSON.stringify(next))
-        setComments(next)
-        ActivityLogger.log(ActivityTypes.ADD_COMMENT, `Added comment: ${text.substring(0, 50)}...`)
-        setText('')
-        console.info('Notification: new comment by', author)
+        try {
+            const newComment = await api.postComment(text)
+            setComments(prev => [newComment, ...prev])
+            ActivityLogger.log(ActivityTypes.ADD_COMMENT, `Added comment: ${text.substring(0, 50)}...`)
+            setText('')
+        } catch (err: any) {
+            alert('Error posting comment: ' + err.message)
+        }
     }
 
-    function remove(id: string, commentText: string) {
+    async function remove(id: string, commentText: string) {
         if (!confirm(`Delete comment: "${commentText.substring(0, 50)}..."?`)) return
-        const next = comments.filter(c => c.id !== id)
-        localStorage.setItem('collab_comments', JSON.stringify(next))
-        setComments(next)
-        ActivityLogger.log(ActivityTypes.DELETE_COMMENT, `Deleted comment`)
+        try {
+            await api.deleteComment(id)
+            setComments(prev => prev.filter(c => c.id !== id))
+            ActivityLogger.log(ActivityTypes.DELETE_COMMENT, `Deleted comment`)
+        } catch (err: any) {
+            alert('Error deleting comment: ' + err.message)
+        }
     }
 
     return (
@@ -49,9 +63,9 @@ export default function Comments() {
                 <div className="form-group">
                     <label htmlFor="comment-input">Write a Comment</label>
                     <textarea
-                        id="comment-input" 
-                        value={text} 
-                        onChange={e => setText(e.target.value)} 
+                        id="comment-input"
+                        value={text}
+                        onChange={e => setText(e.target.value)}
                         placeholder="Share your thoughts, feedback, or questions..."
                         rows={3}
                         onKeyDown={e => e.key === 'Enter' && e.ctrlKey && add()}
@@ -83,7 +97,7 @@ export default function Comments() {
                                 fontWeight: 'bold',
                                 flexShrink: 0
                             }}>
-                                {c.author.charAt(0).toUpperCase()}
+                                {(c.author || 'A').charAt(0).toUpperCase()}
                             </div>
                             <div style={{ flex: 1 }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>

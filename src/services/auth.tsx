@@ -9,7 +9,16 @@ const AuthContext = React.createContext<any>(null)
 function useProvideAuth() {
     const [user, setUser] = React.useState<User | null>(() => {
         const raw = localStorage.getItem('collab_user')
-        return raw ? JSON.parse(raw) : null
+        if (!raw) return null
+
+        const userData = JSON.parse(raw)
+        // Migration: ensure both id and userId fields are present and consistent
+        if (userData && !userData.userId && userData.id) {
+            console.warn('[Auth] Migrating user data: copying id to userId')
+            userData.userId = userData.id
+            localStorage.setItem('collab_user', JSON.stringify(userData))
+        }
+        return userData
     })
 
     function save(u: User | null) {

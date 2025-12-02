@@ -12,14 +12,14 @@ export default function ProjectDetail() {
     React.useEffect(() => {
         setLoading(true)
         api.getProject(id as string)
-            .then((p:any)=> setProject(p))
-            .catch(()=> setProject(null))
+            .then((p: any) => setProject(p))
+            .catch(() => setProject(null))
             .finally(() => setLoading(false))
     }, [id])
 
     function deleteFile(fileId: string, fileName: string) {
         if (!confirm(`Delete "${fileName}"? This cannot be undone.`)) return
-        api.deleteFile(id as string, fileId).then((p:any)=> setProject({...p}))
+        api.deleteFile(id as string, fileId).then((p: any) => setProject({ ...p }))
     }
 
     const handleDownloadFile = (file: any) => {
@@ -64,20 +64,20 @@ export default function ProjectDetail() {
                 </div>
             </div>
 
-            {project.files.length === 0 ? (
+            {!project.files || project.files.length === 0 ? (
                 <div className="empty-state">
                     <h3>No files in this project</h3>
                     <p className="text-muted">Upload files to get started</p>
                 </div>
             ) : (
                 <div className="list">
-                    {project.files.map((f: any) => (
+                    {(project.files || []).filter((f: any) => f && f.id).map((f: any) => (
                         <div key={f.id} className="card">
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
                                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', flex: 1 }}>
-                                    <div style={{ 
-                                        fontSize: '0.75rem', 
-                                        fontWeight: 'bold', 
+                                    <div style={{
+                                        fontSize: '0.75rem',
+                                        fontWeight: 'bold',
                                         color: 'white',
                                         background: '#2196f3',
                                         padding: '0.5rem',

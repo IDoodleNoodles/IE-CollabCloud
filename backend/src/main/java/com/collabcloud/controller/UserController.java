@@ -1,55 +1,79 @@
 package com.collabcloud.controller;
 
-import com.collabcloud.model.User;
-import com.collabcloud.repository.UserRepository;
+import com.collabcloud.entity.UserEntity;
+import com.collabcloud.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/users")
 public class UserController {
-    private final UserRepository userRepository;
 
-    public UserController(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
+    @Autowired
+    private UserService userService;
 
     @GetMapping
-    public List<User> getAll() {
-        return userRepository.findAll();
+    public ResponseEntity<List<UserEntity>> getAllUsers() {
+        List<UserEntity> users = userService.getAllUsers();
+        return ResponseEntity.ok(users);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<User> getById(@PathVariable Long id) {
-        Optional<User> u = userRepository.findById(id);
-        return u.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+    public ResponseEntity<UserEntity> getUserById(@PathVariable("id") Long userId) {
+        return userService.getUserById(userId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/email/{email}")
+    public ResponseEntity<UserEntity> getUserByEmail(@PathVariable("email") String email) {
+        return userService.getUserByEmail(email)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping
-    public User create(@RequestBody User user) {
-        return userRepository.save(user);
+    public ResponseEntity<UserEntity> createUser(@RequestBody UserEntity user) {
+        if (userService.existsByEmail(user.getEmail())) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        }
+        UserEntity createdUser = userService.createUser(user);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdUser);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<User> update(@PathVariable Long id, @RequestBody User payload) {
-        return userRepository.findById(id).map(existing -> {
-            existing.setName(payload.getName());
-            existing.setEmail(payload.getEmail());
-            existing.setPassword(payload.getPassword());
-            existing.setRole(payload.getRole());
-            existing.setDateRegistered(payload.getDateRegistered());
-            return ResponseEntity.ok(userRepository.save(existing));
-        }).orElseGet(() -> ResponseEntity.notFound().build());
+    public ResponseEntity<UserEntity> updateUser(
+            @PathVariable("id") Long userId,
+            @RequestBody UserEntity userDetails) {
+        try {
+            UserEntity updatedUser = userService.updateUser(userId, userDetails);
+            return ResponseEntity.ok(updatedUser);
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        if (!userRepository.existsById(id))
+    public ResponseEntity<Void> deleteUser(@PathVariable("id") Long userId) {
+        try {
+            userService.deleteUser(userId);
+            return ResponseEntity.noContent().build();
+        } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
-        userRepository.deleteById(id);
-        return ResponseEntity.noContent().build();
+        }
+    }
+
+    @PatchMapping("/{id}/last-login")
+    public ResponseEntity<Void> updateLastLogin(@PathVariable("id") Long userId) {
+        try {
+            userService.updateLastLogin(userId);
+            return ResponseEntity.ok().build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 }

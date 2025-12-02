@@ -15,11 +15,16 @@ export default function Projects() {
     const fileInputRef = React.useRef<HTMLInputElement>(null)
     const uploadFormRef = React.useRef<HTMLDivElement>(null)
 
-    React.useEffect(() => { 
-        api.getProjects().then((p:any)=> {
-            setProjects(p || [])
-            ActivityLogger.log(ActivityTypes.VIEW_PROJECTS, `Viewed ${(p || []).length} projects`)
-        }).catch(()=> setProjects([])) 
+    React.useEffect(() => {
+        api.getProjects().then((p: any) => {
+            // Filter out any projects without valid IDs
+            const validProjects = (p || []).filter((proj: any) => proj && proj.id)
+            setProjects(validProjects)
+            ActivityLogger.log(ActivityTypes.VIEW_PROJECTS, `Viewed ${validProjects.length} projects`)
+        }).catch((err) => {
+            console.error('[Projects] Failed to fetch projects:', err)
+            setProjects([])
+        })
     }, [])
 
     React.useEffect(() => {
@@ -47,12 +52,18 @@ export default function Projects() {
                 reader.onload = () => res({ id: nanoid(), name: f.name, type: f.type, dataUrl: reader.result as string })
                 reader.readAsDataURL(f)
             })))
-            const proj:any = await api.createProject(name, fileMetas)
+            console.log('[Projects] Creating project:', name, 'with', fileMetas.length, 'files')
+            const proj: any = await api.createProject(name, fileMetas)
+            console.log('[Projects] Created project:', proj)
+            if (!proj || !proj.id) {
+                throw new Error('Invalid project returned from server')
+            }
             setProjects(prev => [proj, ...prev])
             ActivityLogger.log(ActivityTypes.UPLOAD_PROJECT, `Created project: ${name} with ${fileMetas.length} files`)
             setName('')
             input.value = ''
         } catch (err: any) {
+            console.error('[Projects] Error creating project:', err)
             alert('Error creating project: ' + err.message)
         } finally {
             setIsCreating(false)
@@ -61,7 +72,7 @@ export default function Projects() {
 
     function removeProject(id: string, projectName: string) {
         if (!confirm(`Delete project "${projectName}"? This cannot be undone.`)) return
-        api.deleteProject(id).then(()=> {
+        api.deleteProject(id).then(() => {
             setProjects(prev => prev.filter(p => p.id !== id))
             ActivityLogger.log(ActivityTypes.CREATE_PROJECT, `Deleted project: ${projectName}`)
         })
@@ -96,9 +107,9 @@ export default function Projects() {
                     <div className="form-group">
                         <label htmlFor="project-name">Project Name</label>
                         <input
-                            id="project-name" 
-                            placeholder="Enter project name (e.g., My Awesome App)" 
-                            value={name} 
+                            id="project-name"
+                            placeholder="Enter project name (e.g., My Awesome App)"
+                            value={name}
                             onChange={e => setName(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && fileInputRef.current?.click()}
                             autoFocus
@@ -109,18 +120,18 @@ export default function Projects() {
                         <p className="text-muted text-sm" style={{ marginBottom: '0.5rem' }}>
                             Select one or multiple files to include in your project
                         </p>
-                        <button 
-                            className="success" 
+                        <button
+                            className="success"
                             onClick={() => fileInputRef.current?.click()}
                             disabled={!name.trim() || isCreating}
                             style={{ width: '100%' }}
                         >
                             {isCreating ? 'Creating Project...' : 'Choose Files to Upload'}
                         </button>
-                        <input 
+                        <input
                             ref={fileInputRef}
-                            type="file" 
-                            multiple 
+                            type="file"
+                            multiple
                             onChange={handleFilesChange}
                             style={{ display: 'none' }}
                         />
@@ -138,30 +149,33 @@ export default function Projects() {
                         </div>
                     ) : (
                         <div className="list">
-                            {projects.map(p => (
-                    <div key={p.id} className="card">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
-                            <div style={{ flex: 1 }}>
-                                <Link to={`/projects/${p.id}`} style={{ textDecoration: 'none' }}>
-                                    <h4 style={{ marginBottom: '0.5rem', color: 'var(--primary)' }}>{p.name}</h4>
-                                </Link>
-                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                                    <span className="badge primary">{p.files.length} {p.files.length === 1 ? 'file' : 'files'}</span>
-                                    {p.files.slice(0, 3).map(f => (
-                                        <span key={f.id} className="badge text-xs">{f.name}</span>
-                                    ))}
-                                    {p.files.length > 3 && <span className="text-muted text-xs">+{p.files.length - 3} more</span>}
-                                </div>
-                            </div>
-                            <div className="btn-group">
-                                <Link to={`/projects/${p.id}`}>
-                                    <button>View Details</button>
-                                </Link>
-                                <button className="danger" onClick={() => removeProject(p.id, p.name)}>Delete</button>
-                            </div>
-                        </div>
-                    </div>
-                            ))}
+                            {projects.filter(p => p && p.id).map(p => {
+                                const files = (p.files || []).filter((f: FileMeta) => f && f.id)
+                                return (
+                                    <div key={p.id} className="card">
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+                                            <div style={{ flex: 1 }}>
+                                                <Link to={`/projects/${p.id}`} style={{ textDecoration: 'none' }}>
+                                                    <h4 style={{ marginBottom: '0.5rem', color: 'var(--primary)' }}>{p.name}</h4>
+                                                </Link>
+                                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                                                    <span className="badge primary">{files.length} {files.length === 1 ? 'file' : 'files'}</span>
+                                                    {files.slice(0, 3).map((f: FileMeta) => (
+                                                        <span key={f.id} className="badge text-xs">{f.name}</span>
+                                                    ))}
+                                                    {files.length > 3 && <span className="text-muted text-xs">+{files.length - 3} more</span>}
+                                                </div>
+                                            </div>
+                                            <div className="btn-group">
+                                                <Link to={`/projects/${p.id}`}>
+                                                    <button>View Details</button>
+                                                </Link>
+                                                <button className="danger" onClick={() => removeProject(p.id, p.name)}>Delete</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )
+                            })}
                         </div>
                     )}
                 </>

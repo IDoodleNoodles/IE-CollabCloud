@@ -1,65 +1,65 @@
 package com.collabcloud.controller;
 
-import com.collabcloud.model.FileEntity;
-import com.collabcloud.model.Project;
-import com.collabcloud.repository.FileRepository;
-import com.collabcloud.repository.ProjectRepository;
+import com.collabcloud.entity.FileEntity;
+import com.collabcloud.service.FileService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/files")
 public class FileController {
-    private final FileRepository fileRepository;
-    private final ProjectRepository projectRepository;
 
-    public FileController(FileRepository fileRepository, ProjectRepository projectRepository) {
-        this.fileRepository = fileRepository;
-        this.projectRepository = projectRepository;
-    }
+    @Autowired
+    private FileService fileService;
 
     @GetMapping
-    public List<FileEntity> getAll() {
-        return fileRepository.findAll();
+    public ResponseEntity<List<FileEntity>> getAllFiles() {
+        List<FileEntity> files = fileService.getAllFiles();
+        return ResponseEntity.ok(files);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<FileEntity> getById(@PathVariable Long id) {
-        Optional<FileEntity> f = fileRepository.findById(id);
-        return f.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+    public ResponseEntity<FileEntity> getFileById(@PathVariable("id") Long fileId) {
+        return fileService.getFileById(fileId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/project/{projectId}")
+    public ResponseEntity<List<FileEntity>> getFilesByProjectId(@PathVariable("projectId") Long projectId) {
+        List<FileEntity> files = fileService.getFilesByProjectId(projectId);
+        return ResponseEntity.ok(files);
     }
 
     @PostMapping
-    public ResponseEntity<FileEntity> create(@RequestBody FileEntity payload) {
-        if (payload.getProject() != null && payload.getProject().getProjectID() != null) {
-            projectRepository.findById(payload.getProject().getProjectID()).ifPresent(payload::setProject);
-        }
-        FileEntity saved = fileRepository.save(payload);
-        return ResponseEntity.ok(saved);
+    public ResponseEntity<FileEntity> createFile(@RequestBody FileEntity file) {
+        FileEntity createdFile = fileService.createFile(file);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdFile);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<FileEntity> update(@PathVariable Long id, @RequestBody FileEntity payload) {
-        return fileRepository.findById(id).map(existing -> {
-            existing.setFileName(payload.getFileName());
-            existing.setFileType(payload.getFileType());
-            existing.setFilePath(payload.getFilePath());
-            existing.setUploadedDate(payload.getUploadedDate());
-            if (payload.getProject() != null && payload.getProject().getProjectID() != null) {
-                projectRepository.findById(payload.getProject().getProjectID()).ifPresent(existing::setProject);
-            }
-            return ResponseEntity.ok(fileRepository.save(existing));
-        }).orElseGet(() -> ResponseEntity.notFound().build());
+    public ResponseEntity<FileEntity> updateFile(
+            @PathVariable("id") Long fileId,
+            @RequestBody FileEntity fileDetails) {
+        try {
+            FileEntity updatedFile = fileService.updateFile(fileId, fileDetails);
+            return ResponseEntity.ok(updatedFile);
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        if (!fileRepository.existsById(id))
+    public ResponseEntity<Void> deleteFile(@PathVariable("id") Long fileId) {
+        try {
+            fileService.deleteFile(fileId);
+            return ResponseEntity.noContent().build();
+        } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
-        fileRepository.deleteById(id);
-        return ResponseEntity.noContent().build();
+        }
     }
 }
