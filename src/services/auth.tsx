@@ -1,14 +1,24 @@
 import React from 'react'
 import api from './api'
+import { ActivityLogger, ActivityTypes } from './activityLogger'
 
-type User = { id: string; email: string }
+type User = { id: string; email: string; name?: string; role?: string }
 
 const AuthContext = React.createContext<any>(null)
 
 function useProvideAuth() {
     const [user, setUser] = React.useState<User | null>(() => {
         const raw = localStorage.getItem('collab_user')
-        return raw ? JSON.parse(raw) : null
+        if (!raw) return null
+
+        const userData = JSON.parse(raw)
+        // Migration: ensure both id and userId fields are present and consistent
+        if (userData && !userData.userId && userData.id) {
+            console.warn('[Auth] Migrating user data: copying id to userId')
+            userData.userId = userData.id
+            localStorage.setItem('collab_user', JSON.stringify(userData))
+        }
+        return userData
     })
 
     function save(u: User | null) {
@@ -19,16 +29,21 @@ function useProvideAuth() {
 
     return {
         user,
-        register: async (email: string, password: string) => {
-            const r = await api.register(email, password)
-            if (r) save(r)
+        register: async (email: string, password: string, name?: string) => {
+            const r = await api.register(email, password, name)
+            if (r) {
+                save(r)
+                ActivityLogger.log(ActivityTypes.REGISTER, `New user registered: ${email}`)
+            }
             return r
         },
         login: async (email: string, password: string) => {
             const r = await api.login(email, password)
             if (r) {
                 // if API returned token, api.login already stored it
-                save(r.id ? r : r.user || r)
+                const userData = r.id ? r : r.user || r
+                save(userData)
+                ActivityLogger.log(ActivityTypes.LOGIN, `User logged in: ${email}`)
             }
             return r
         },
