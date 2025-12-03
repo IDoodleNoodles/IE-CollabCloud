@@ -80,193 +80,417 @@ export default function Profile() {
     }
 
     return (
-        <div style={{ maxWidth: '700px', margin: '0 auto' }}>
+        <div style={{ 
+            padding: '2rem',
+            minHeight: '100vh',
+            backgroundColor: '#F9FAFB'
+        }}>
+            {/* Header */}
             <div style={{ marginBottom: '2rem' }}>
-                <h2>Your Profile</h2>
-                <p className="text-muted">Manage your personal information and preferences</p>
+                <h1 style={{ 
+                    margin: 0, 
+                    fontSize: '1.875rem', 
+                    fontWeight: '700',
+                    color: '#111827',
+                    marginBottom: '0.5rem'
+                }}>
+                    Manage Profile
+                </h1>
+                <p style={{
+                    margin: 0,
+                    fontSize: '0.875rem',
+                    color: '#6B7280'
+                }}>
+                    Update your personal information and settings
+                </p>
             </div>
 
-            <div className="card" style={{ marginBottom: '1.5rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '1.5rem', paddingBottom: '1.5rem', borderBottom: '1px solid var(--gray-200)' }}>
-                    <div style={{ 
-                        width: '80px', 
-                        height: '80px', 
-                        borderRadius: '50%', 
-                        background: 'linear-gradient(135deg, #1e88e5 0%, #42a5f5 100%)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '2rem',
-                        color: 'white'
+            {/* Main Content Layout */}
+            <div style={{ 
+                display: 'grid',
+                gridTemplateColumns: '300px 1fr',
+                gap: '2rem',
+                maxWidth: '1400px'
+            }}>
+                {/* Left Side - Avatar Section */}
+                <div style={{
+                    backgroundColor: 'white',
+                    borderRadius: '0.75rem',
+                    padding: '2rem',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    height: 'fit-content'
+                }}>
+                    {/* Avatar with Camera Icon */}
+                    <div style={{ position: 'relative', marginBottom: '1.5rem' }}>
+                        <div style={{ 
+                            width: '140px', 
+                            height: '140px', 
+                            borderRadius: '50%', 
+                            background: 'linear-gradient(135deg, #667EEA 0%, #764BA2 100%)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '3.5rem',
+                            fontWeight: '600',
+                            color: 'white'
+                        }}>
+                            {profile.name ? profile.name.charAt(0).toUpperCase() : user?.email?.charAt(0).toUpperCase() || 'U'}
+                        </div>
+                        {/* Camera Icon */}
+                        <div style={{
+                            position: 'absolute',
+                            bottom: '8px',
+                            right: '8px',
+                            width: '40px',
+                            height: '40px',
+                            borderRadius: '50%',
+                            backgroundColor: '#4285F4',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                        }}>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                                <path d="M12 15.2c-2.91 0-5.2-2.29-5.2-5.2s2.29-5.2 5.2-5.2 5.2 2.29 5.2 5.2-2.29 5.2-5.2 5.2zM20 4h-3.17L15 2H9L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 13c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
+                            </svg>
+                        </div>
+                    </div>
+                    
+                    {/* User Info */}
+                    <h3 style={{ 
+                        margin: 0, 
+                        fontSize: '1.25rem', 
+                        fontWeight: '600',
+                        color: '#111827',
+                        marginBottom: '0.5rem',
+                        textAlign: 'center'
                     }}>
-                        {profile.name ? profile.name.charAt(0).toUpperCase() : '👤'}
-                    </div>
-                    <div>
-                        <h3 style={{ marginBottom: '0.25rem' }}>{profile.name || 'Anonymous User'}</h3>
-                        <p className="text-muted">{user?.email || 'No email'}</p>
-                    </div>
+                        {profile.name || 'User'}
+                    </h3>
+                    <p style={{
+                        margin: 0,
+                        fontSize: '0.875rem',
+                        color: '#6B7280',
+                        textAlign: 'center'
+                    }}>
+                        {user?.email || 'No email'}
+                    </p>
                 </div>
 
-                {error && (
+                {/* Right Side - Form Sections */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                    {/* Personal Information Section */}
                     <div style={{
-                        padding: '0.875rem',
-                        background: 'rgba(239, 68, 68, 0.1)',
-                        border: '1px solid #ef4444',
-                        borderRadius: '10px',
-                        color: '#dc2626',
-                        marginBottom: '1.5rem',
-                        fontSize: '0.9rem'
+                        backgroundColor: 'white',
+                        borderRadius: '0.75rem',
+                        padding: '2rem',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
                     }}>
-                        {error}
-                    </div>
-                )}
+                        {/* Section Header */}
+                        <div style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '0.75rem',
+                            marginBottom: '1.5rem',
+                            paddingBottom: '1rem',
+                            borderBottom: '1px solid #E5E7EB'
+                        }}>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                <circle cx="12" cy="7" r="4"/>
+                            </svg>
+                            <h2 style={{ 
+                                margin: 0, 
+                                fontSize: '1.125rem', 
+                                fontWeight: '600',
+                                color: '#111827'
+                            }}>
+                                Personal Information
+                            </h2>
+                        </div>
 
-                <div className="form-group">
-                    <label htmlFor="profile-name">Full Name</label>
-                    <input
-                        id="profile-name" 
-                        placeholder="Enter your full name" 
-                        value={profile.name || ''} 
-                        onChange={e => setProfile({ ...profile, name: e.target.value })} 
-                    />
-                </div>
+                        {error && (
+                            <div style={{
+                                padding: '0.875rem 1rem',
+                                backgroundColor: '#FEE2E2',
+                                border: '1px solid #EF4444',
+                                borderRadius: '0.5rem',
+                                color: '#DC2626',
+                                marginBottom: '1.5rem',
+                                fontSize: '0.875rem'
+                            }}>
+                                {error}
+                            </div>
+                        )}
 
-                <div className="form-group">
-                    <label htmlFor="profile-email">Email Address</label>
-                    <input
-                        id="profile-email"
-                        type="email"
-                        placeholder="Enter your email"
-                        value={email}
-                        onChange={e => setEmail(e.target.value)}
-                    />
-                </div>
-
-                <div className="form-group">
-                    <label htmlFor="profile-bio">Bio</label>
-                    <textarea
-                        id="profile-bio" 
-                        placeholder="Tell us about yourself..." 
-                        value={profile.bio || ''} 
-                        onChange={e => setProfile({ ...profile, bio: e.target.value })}
-                        rows={4}
-                    />
-                </div>
-
-                <div className="form-group">
-                    <label htmlFor="profile-interests">Interests</label>
-                    <input
-                        id="profile-interests" 
-                        placeholder="e.g., Web Development, Design, Photography" 
-                        value={profile.interests || ''} 
-                        onChange={e => setProfile({ ...profile, interests: e.target.value })} 
-                    />
-                    <small className="text-muted">Separate multiple interests with commas</small>
-                </div>
-
-                <div className="form-group">
-                    <label htmlFor="profile-website">Website</label>
-                    <input
-                        id="profile-website" 
-                        type="url"
-                        placeholder="https://yourwebsite.com" 
-                        value={profile.website || ''} 
-                        onChange={e => setProfile({ ...profile, website: e.target.value })} 
-                    />
-                </div>
-
-                <div className="btn-group">
-                    <button className="success" onClick={save}>
-                        {saved ? 'Saved!' : 'Save Profile'}
-                    </button>
-                </div>
-            </div>
-
-            {/* Password Change Section */}
-            <div className="card" style={{ marginBottom: '1.5rem' }}>
-                <h4 style={{ marginBottom: '1rem' }}>Change Password</h4>
-                
-                {!showPasswordChange ? (
-                    <button className="secondary" onClick={() => setShowPasswordChange(true)}>
-                        Change Password
-                    </button>
-                ) : (
-                    <>
-                        <div className="form-group">
-                            <label htmlFor="current-password">Current Password</label>
+                        {/* Full Name */}
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <label style={{ 
+                                display: 'block',
+                                fontSize: '0.875rem',
+                                fontWeight: '500',
+                                color: '#374151',
+                                marginBottom: '0.5rem'
+                            }}>
+                                Full Name
+                            </label>
                             <input
-                                id="current-password"
-                                type="password"
-                                placeholder="Enter current password"
-                                value={currentPassword}
-                                onChange={e => setCurrentPassword(e.target.value)}
+                                type="text"
+                                placeholder={profile.name || user?.email?.split('@')[0] || 'Test'}
+                                value={profile.name || ''}
+                                onChange={e => setProfile({ ...profile, name: e.target.value })}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.75rem 1rem',
+                                    fontSize: '0.9375rem',
+                                    border: '1px solid #D1D5DB',
+                                    borderRadius: '0.5rem',
+                                    outline: 'none',
+                                    transition: 'all 0.2s',
+                                    boxSizing: 'border-box'
+                                }}
+                                onFocus={(e) => e.target.style.borderColor = '#4285F4'}
+                                onBlur={(e) => e.target.style.borderColor = '#D1D5DB'}
                             />
                         </div>
 
-                        <div className="form-group">
-                            <label htmlFor="new-password">New Password</label>
+                        {/* Email Address */}
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <label style={{ 
+                                display: 'block',
+                                fontSize: '0.875rem',
+                                fontWeight: '500',
+                                color: '#374151',
+                                marginBottom: '0.5rem'
+                            }}>
+                                Email Address
+                            </label>
+                            <div style={{ position: 'relative' }}>
+                                <svg 
+                                    width="20" 
+                                    height="20" 
+                                    viewBox="0 0 24 24" 
+                                    fill="none" 
+                                    stroke="#9CA3AF" 
+                                    strokeWidth="2"
+                                    style={{
+                                        position: 'absolute',
+                                        left: '1rem',
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        pointerEvents: 'none'
+                                    }}
+                                >
+                                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                                    <polyline points="22,6 12,13 2,6"/>
+                                </svg>
+                                <input
+                                    type="email"
+                                    placeholder={user?.email || 'testadmin@gmail.com'}
+                                    value={email}
+                                    onChange={e => setEmail(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem 1rem 0.75rem 3rem',
+                                        fontSize: '0.9375rem',
+                                        border: '1px solid #D1D5DB',
+                                        borderRadius: '0.5rem',
+                                        outline: 'none',
+                                        transition: 'all 0.2s',
+                                        boxSizing: 'border-box'
+                                    }}
+                                    onFocus={(e) => e.target.style.borderColor = '#4285F4'}
+                                    onBlur={(e) => e.target.style.borderColor = '#D1D5DB'}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Save Button */}
+                        <button
+                            onClick={save}
+                            style={{
+                                width: '100%',
+                                padding: '0.75rem 1.5rem',
+                                backgroundColor: '#4285F4',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '0.5rem',
+                                fontSize: '0.9375rem',
+                                fontWeight: '500',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.5rem',
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#3367D6'}
+                            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#4285F4'}
+                        >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+                                <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/>
+                            </svg>
+                            {saved ? 'Saved!' : 'Save Changes'}
+                        </button>
+                    </div>
+
+                    {/* Change Password Section */}
+                    <div style={{
+                        backgroundColor: 'white',
+                        borderRadius: '0.75rem',
+                        padding: '2rem',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                    }}>
+                        {/* Section Header */}
+                        <div style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '0.75rem',
+                            marginBottom: '1.5rem',
+                            paddingBottom: '1rem',
+                            borderBottom: '1px solid #E5E7EB'
+                        }}>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                            </svg>
+                            <h2 style={{ 
+                                margin: 0, 
+                                fontSize: '1.125rem', 
+                                fontWeight: '600',
+                                color: '#111827'
+                            }}>
+                                Change Password
+                            </h2>
+                        </div>
+
+                        {/* Current Password */}
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <label style={{ 
+                                display: 'block',
+                                fontSize: '0.875rem',
+                                fontWeight: '500',
+                                color: '#374151',
+                                marginBottom: '0.5rem'
+                            }}>
+                                Current Password
+                            </label>
                             <input
-                                id="new-password"
                                 type="password"
-                                placeholder="Enter new password"
+                                placeholder="••••••••"
+                                value={currentPassword}
+                                onChange={e => setCurrentPassword(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.75rem 1rem',
+                                    fontSize: '0.9375rem',
+                                    border: '1px solid #D1D5DB',
+                                    borderRadius: '0.5rem',
+                                    outline: 'none',
+                                    transition: 'all 0.2s',
+                                    boxSizing: 'border-box'
+                                }}
+                                onFocus={(e) => e.target.style.borderColor = '#4285F4'}
+                                onBlur={(e) => e.target.style.borderColor = '#D1D5DB'}
+                            />
+                        </div>
+
+                        {/* New Password */}
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <label style={{ 
+                                display: 'block',
+                                fontSize: '0.875rem',
+                                fontWeight: '500',
+                                color: '#374151',
+                                marginBottom: '0.5rem'
+                            }}>
+                                New Password
+                            </label>
+                            <input
+                                type="password"
+                                placeholder="At least 6 characters"
                                 value={newPassword}
                                 onChange={e => setNewPassword(e.target.value)}
                                 minLength={6}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.75rem 1rem',
+                                    fontSize: '0.9375rem',
+                                    border: '1px solid #D1D5DB',
+                                    borderRadius: '0.5rem',
+                                    outline: 'none',
+                                    transition: 'all 0.2s',
+                                    boxSizing: 'border-box'
+                                }}
+                                onFocus={(e) => e.target.style.borderColor = '#4285F4'}
+                                onBlur={(e) => e.target.style.borderColor = '#D1D5DB'}
                             />
-                            <small className="text-muted">At least 6 characters</small>
                         </div>
 
-                        <div className="form-group">
-                            <label htmlFor="confirm-password">Confirm New Password</label>
+                        {/* Confirm New Password */}
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <label style={{ 
+                                display: 'block',
+                                fontSize: '0.875rem',
+                                fontWeight: '500',
+                                color: '#374151',
+                                marginBottom: '0.5rem'
+                            }}>
+                                Confirm New Password
+                            </label>
                             <input
-                                id="confirm-password"
                                 type="password"
                                 placeholder="Re-enter new password"
                                 value={confirmPassword}
                                 onChange={e => setConfirmPassword(e.target.value)}
                                 minLength={6}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.75rem 1rem',
+                                    fontSize: '0.9375rem',
+                                    border: '1px solid #D1D5DB',
+                                    borderRadius: '0.5rem',
+                                    outline: 'none',
+                                    transition: 'all 0.2s',
+                                    boxSizing: 'border-box'
+                                }}
+                                onFocus={(e) => e.target.style.borderColor = '#4285F4'}
+                                onBlur={(e) => e.target.style.borderColor = '#D1D5DB'}
                             />
                         </div>
 
-                        <div className="btn-group">
-                            <button className="success" onClick={changePassword}>
-                                Update Password
-                            </button>
-                            <button className="secondary" onClick={() => {
-                                setShowPasswordChange(false)
-                                setCurrentPassword('')
-                                setNewPassword('')
-                                setConfirmPassword('')
-                                setError(null)
-                            }}>
-                                Cancel
-                            </button>
-                        </div>
-                    </>
-                )}
-            </div>
-
-            <div className="card" style={{ background: 'var(--gray-50)' }}>
-                <h4>Your Stats</h4>
-                <div className="divider"></div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem' }}>
-                    <div>
-                        <div className="text-muted text-sm">Projects</div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--primary)' }}>
-                            {JSON.parse(localStorage.getItem('collab_projects') || '[]').length}
-                        </div>
-                    </div>
-                    <div>
-                        <div className="text-muted text-sm">Versions</div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--success)' }}>
-                            {JSON.parse(localStorage.getItem('collab_versions') || '[]').length}
-                        </div>
-                    </div>
-                    <div>
-                        <div className="text-muted text-sm">Comments</div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--secondary)' }}>
-                            {JSON.parse(localStorage.getItem('collab_comments') || '[]').length}
-                        </div>
+                        {/* Update Password Button */}
+                        <button
+                            onClick={changePassword}
+                            style={{
+                                width: '100%',
+                                padding: '0.75rem 1.5rem',
+                                backgroundColor: '#4285F4',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '0.5rem',
+                                fontSize: '0.9375rem',
+                                fontWeight: '500',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.5rem',
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#3367D6'}
+                            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#4285F4'}
+                        >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                            </svg>
+                            Update Password
+                        </button>
                     </div>
                 </div>
             </div>

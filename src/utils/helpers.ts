@@ -31,7 +31,7 @@ export function getTimeAgo(timestamp: number): string {
     const minutes = Math.floor(seconds / 60)
     const hours = Math.floor(minutes / 60)
     const days = Math.floor(hours / 24)
-    
+
     if (days > 0) return `${days}d ago`
     if (hours > 0) return `${hours}h ago`
     if (minutes > 0) return `${minutes}m ago`
@@ -103,7 +103,7 @@ export function isValidPassword(password: string): boolean {
  */
 export function getAvatarColor(str: string): string {
     const colors = [
-        '#2196f3', '#4caf50', '#ff9800', '#e91e63', 
+        '#2196f3', '#4caf50', '#ff9800', '#e91e63',
         '#9c27b0', '#00bcd4', '#8bc34a', '#ff5722'
     ]
     let hash = 0
@@ -128,10 +128,25 @@ export function debounce<T extends (...args: any[]) => any>(
 }
 
 /**
- * Download file from data URL
+ * Download file from data URL or backend
  */
-export function downloadFile(fileName: string, dataUrl: string, mimeType?: string): void {
+export function downloadFile(fileName: string, dataUrl: string, mimeType?: string, fileId?: string): void {
     try {
+        // Check if this is a backend file (has fileId or doesn't start with 'data:')
+        if (fileId || !dataUrl.startsWith('data:')) {
+            // Download from backend API
+            const API_BASE = (import.meta as any).env?.VITE_API_BASE || 'http://localhost:8080'
+            const a = document.createElement('a')
+            a.href = `${API_BASE}/api/files/${fileId}/download`
+            a.download = fileName
+            a.target = '_blank'
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+            return
+        }
+
+        // Handle data URL
         const arr = dataUrl.split(',')
         const matches = /:(.*?);/.exec(arr[0])
         const mime = mimeType || (matches ? matches[1] : 'application/octet-stream')

@@ -1,22 +1,40 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
+import { encodeToBase64 } from '../utils/helpers'
+import api from '../services/api'
+import { ActivityLogger, ActivityTypes } from '../services/activityLogger'
 
 export default function Versions() {
-    const [versions, setVersions] = React.useState<any[]>(() => JSON.parse(localStorage.getItem('collab_versions') || '[]'))
-    const [projects] = React.useState<any[]>(() => JSON.parse(localStorage.getItem('collab_projects') || '[]'))
+    const [versions, setVersions] = React.useState<any[]>([])
+    const [projects, setProjects] = React.useState<any[]>([])
 
-    function restore(v: any) {
+    React.useEffect(() => {
+        loadData()
+    }, [])
+
+    async function loadData() {
+        try {
+            const [versionData, projectData] = await Promise.all([
+                api.listVersions(),
+                api.getProjects()
+            ])
+            setVersions(versionData || [])
+            setProjects(projectData || [])
+        } catch (err) {
+            console.error('Error loading versions:', err)
+        }
+    }
+
+    async function restore(v: any) {
         if (!confirm(`Restore version: "${v.message}"? This will overwrite the current file.`)) return
-        const all = JSON.parse(localStorage.getItem('collab_projects') || '[]')
-        const p = all.find((x: any) => x.id === v.projectId)
-        if (!p) return alert('Project not found')
-        const f = p.files.find((x: any) => x.id === v.fileId)
-        if (!f) return alert('File not found')
-        const b64 = encodeToBase64(v.content)
-        f.dataUrl = 'data:text/plain;base64,' + b64
-        localStorage.setItem('collab_projects', JSON.stringify(all))
-        alert('✅ Version restored successfully!')
-        setVersions(JSON.parse(localStorage.getItem('collab_versions') || '[]'))
+        try {
+            await api.restoreVersion(v.projectId, v.fileId, v.id)
+            alert('✅ Version restored successfully!')
+            ActivityLogger.log(ActivityTypes.SAVE_VERSION, `Restored version: ${v.message}`)
+            loadData()
+        } catch (err: any) {
+            alert('Error restoring version: ' + err.message)
+        }
     }
 
     function getProjectName(projectId: string) {
@@ -46,15 +64,15 @@ export default function Versions() {
                 </div>
             ) : (
                 <div style={{ position: 'relative' }}>
-                    <div style={{ 
-                        position: 'absolute', 
-                        left: '20px', 
-                        top: '0', 
-                        bottom: '0', 
-                        width: '2px', 
+                    <div style={{
+                        position: 'absolute',
+                        left: '20px',
+                        top: '0',
+                        bottom: '0',
+                        width: '2px',
                         background: 'var(--gray-200)'
                     }}></div>
-                    
+
                     <div className="list">
                         {versions.map((v, idx) => (
                             <div key={v.id} style={{ position: 'relative', paddingLeft: '3rem' }}>
@@ -68,7 +86,7 @@ export default function Versions() {
                                     background: idx === 0 ? 'var(--success)' : 'white',
                                     border: `3px solid ${idx === 0 ? 'var(--success)' : 'var(--gray-300)'}`
                                 }}></div>
-                                
+
                                 <div className="card">
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
                                         <div style={{ flex: 1 }}>

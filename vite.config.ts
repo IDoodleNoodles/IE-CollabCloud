@@ -6,14 +6,9 @@ export default defineConfig({
     server: {
         port: 5173,
         proxy: {
-            // Proxy API routes to the Spring Boot backend during development
+            // Proxy only backend API routes; let SPA routes be handled client-side
             '/auth': { target: 'http://localhost:8080', changeOrigin: true, secure: false },
-            '/api': { target: 'http://localhost:8080', changeOrigin: true, secure: false },
-            '/projects': { target: 'http://localhost:8080', changeOrigin: true, secure: false },
-            '/comments': { target: 'http://localhost:8080', changeOrigin: true, secure: false },
-            '/versions': { target: 'http://localhost:8080', changeOrigin: true, secure: false },
-            '/users': { target: 'http://localhost:8080', changeOrigin: true, secure: false },
-            '/forums': { target: 'http://localhost:8080', changeOrigin: true, secure: false }
+            '/api': { target: 'http://localhost:8080', changeOrigin: true, secure: false }
         }
     }
 })

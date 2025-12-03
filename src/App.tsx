@@ -4,13 +4,11 @@ import Dashboard from './pages/Dashboard'
 import Auth from './pages/Auth'
 import Projects from './pages/Projects'
 import ProjectDetail from './pages/ProjectDetail'
+import EditProject from './pages/EditProject'
 import Editor from './pages/Editor'
-import Versions from './pages/Versions'
-import Comments from './pages/Comments'
 import Profile from './pages/Profile'
 import ActivityLogs from './pages/ActivityLogs'
 import Search from './pages/Search'
-import Collaborators from './pages/Collaborators'
 import { useAuth } from './services/auth'
 import { ActivityLogger, ActivityTypes } from './services/activityLogger'
 
@@ -58,13 +56,12 @@ export default function App() {
     }
 
     // If not logged in, only show auth page
-    if (!user && location.pathname !== '/auth') {
+    if (!user) {
         return (
-            <div className="app">
-                <Routes>
-                    <Route path="*" element={<Navigate to="/auth" replace />} />
-                </Routes>
-            </div>
+            <Routes>
+                <Route path="/auth" element={<Auth />} />
+                <Route path="*" element={<Navigate to="/auth" replace />} />
+            </Routes>
         )
     }
 
@@ -74,82 +71,96 @@ export default function App() {
                 <nav style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '2rem',
                     padding: '1rem 2rem',
                     background: 'white',
-                    borderBottom: '1px solid #e5e7eb',
-                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)'
+                    borderBottom: '1px solid #E5E7EB',
+                    boxShadow: 'none',
+                    justifyContent: 'center',
+                    position: 'relative'
                 }}>
-                    <Link to="/" style={{
-                        fontSize: '1.5rem',
-                        fontWeight: '700',
-                        background: 'linear-gradient(135deg, #1e88e5 0%, #2196f3 100%)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        backgroundClip: 'text',
-                        textDecoration: 'none',
-                        letterSpacing: '-0.5px'
-                    }}>CollabCloud</Link>
-
-                    <form onSubmit={handleSearch} style={{ flex: 1, maxWidth: '500px', margin: '0 auto' }}>
-                        <input
-                            type="text"
-                            placeholder="Search files..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            style={{
-                                width: '100%',
-                                padding: '0.875rem 1.5rem',
-                                borderRadius: '12px',
-                                border: '2px solid #cbd5e1',
-                                fontSize: '1rem',
-                                outline: 'none',
-                                transition: 'all 0.2s',
-                                background: 'white',
-                                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
-                            }}
-                            onFocus={(e) => {
-                                e.currentTarget.style.borderColor = '#2196f3'
-                                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(33, 150, 243, 0.1)'
-                            }}
-                            onBlur={(e) => {
-                                e.currentTarget.style.borderColor = '#cbd5e1'
-                                e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)'
-                            }}
-                        />
+                    <form onSubmit={handleSearch} style={{ width: '580px' }}>
+                        <div style={{ position: 'relative' }}>
+                            <svg 
+                                style={{
+                                    position: 'absolute',
+                                    left: '1.125rem',
+                                    top: '50%',
+                                    transform: 'translateY(-50%)',
+                                    pointerEvents: 'none'
+                                }}
+                                width="16" 
+                                height="16" 
+                                viewBox="0 0 24 24" 
+                                fill="none" 
+                                stroke="#9CA3AF" 
+                                strokeWidth="2" 
+                                strokeLinecap="round" 
+                                strokeLinejoin="round"
+                            >
+                                <circle cx="11" cy="11" r="8"/>
+                                <path d="m21 21-4.35-4.35"/>
+                            </svg>
+                            <input 
+                                type="search" 
+                                placeholder="Search files..." 
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                style={{ 
+                                    width: '100%', 
+                                    padding: '0.75rem 1rem 0.75rem 2.75rem', 
+                                    borderRadius: '28px', 
+                                    border: '1px solid #DADCE0',
+                                    fontSize: '0.9375rem',
+                                    outline: 'none',
+                                    transition: 'all 0.2s',
+                                    background: 'white',
+                                    color: '#5F6368'
+                                }}
+                                onFocus={(e) => {
+                                    e.currentTarget.style.boxShadow = '0 1px 6px rgba(32, 33, 36, 0.1)'
+                                }}
+                                onBlur={(e) => {
+                                    e.currentTarget.style.boxShadow = 'none'
+                                }}
+                            />
+                        </div>
                     </form>
-                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                        <Link to="/profile" style={{
-                            padding: '0.625rem 1rem',
-                            borderRadius: '10px',
-                            textDecoration: 'none',
-                            color: location.pathname === '/profile' ? '#1e88e5' : '#334155',
-                            background: location.pathname === '/profile' ? '#e3f2fd' : 'transparent',
-                            fontWeight: '500',
-                            fontSize: '0.95rem'
+                    <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', position: 'absolute', right: '2rem' }}>
+                        <span style={{
+                            fontSize: '0.9375rem',
+                            color: '#5F6368',
+                            fontWeight: '500'
                         }}>
-                            {profile.name || user.name || user.email}
-                        </Link>
+                            {profile.name || user.name || user.email?.split('@')[0] || 'User'}
+                        </span>
                         <button style={{
                             padding: '0.625rem 1.25rem',
-                            borderRadius: '10px',
-                            border: '1px solid #e5e7eb',
+                            borderRadius: '8px',
+                            border: '1px solid #E5E7EB',
                             background: 'white',
-                            color: '#64748b',
-                            fontSize: '0.9rem',
+                            color: '#5F6368',
+                            fontSize: '0.875rem',
                             fontWeight: '500',
                             cursor: 'pointer',
-                            transition: 'all 0.2s'
+                            transition: 'all 0.2s',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem'
                         }}
-                            onMouseOver={(e) => {
-                                e.currentTarget.style.background = '#f8fafc'
-                                e.currentTarget.style.borderColor = '#cbd5e1'
-                            }}
-                            onMouseOut={(e) => {
-                                e.currentTarget.style.background = 'white'
-                                e.currentTarget.style.borderColor = '#e5e7eb'
-                            }}
-                            onClick={handleLogout}>Log out</button>
+                        onMouseOver={(e) => {
+                            e.currentTarget.style.background = '#F9FAFB'
+                        }}
+                        onMouseOut={(e) => {
+                            e.currentTarget.style.background = 'white'
+                        }}
+                        onClick={handleLogout}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                                <polyline points="16 17 21 12 16 7"/>
+                                <line x1="21" y1="12" x2="9" y2="12"/>
+                            </svg>
+                            Log out
+                        </button>
                     </div>
                 </nav>
             )}
@@ -159,184 +170,181 @@ export default function App() {
                     <aside style={{
                         width: '260px',
                         background: 'white',
-                        borderRight: '1px solid #e5e7eb',
+                        borderRight: '1px solid #E5E7EB',
                         padding: '2rem 1.25rem',
                         overflowY: 'auto'
                     }}>
-                        <h3 style={{
-                            fontSize: '0.75rem',
-                            textTransform: 'uppercase',
-                            color: '#94a3b8',
-                            marginBottom: '1.25rem',
-                            paddingLeft: '0.75rem',
+                        <Link to="/" style={{
+                            fontSize: '1.5rem',
                             fontWeight: '600',
-                            letterSpacing: '0.5px'
-                        }}>Quick Actions</h3>
-                        <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                            color: '#4285F4',
+                            textDecoration: 'none',
+                            display: 'block',
+                            marginBottom: '2.5rem',
+                            paddingLeft: '0.75rem'
+                        }}>
+                            CollabCloud
+                        </Link>
+                        <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                             <Link to="/" style={{
-                                padding: '0.875rem 0.75rem',
-                                borderRadius: '10px',
+                                padding: '0.75rem 0.875rem',
+                                borderRadius: '8px',
                                 textDecoration: 'none',
-                                color: location.pathname === '/' ? '#1e88e5' : '#64748b',
+                                color: location.pathname === '/' ? '#4285F4' : '#5F6368',
                                 transition: 'all 0.2s',
-                                background: location.pathname === '/' ? '#e3f2fd' : 'transparent',
+                                background: location.pathname === '/' ? '#E8F0FE' : 'transparent',
                                 fontWeight: location.pathname === '/' ? '600' : '500',
-                                fontSize: '0.95rem',
-                                display: 'block'
+                                fontSize: '0.9375rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.75rem'
                             }}
-                                onMouseOver={(e) => {
-                                    if (location.pathname !== '/') {
-                                        e.currentTarget.style.background = '#f8fafc'
-                                    }
-                                }}
-                                onMouseOut={(e) => {
-                                    if (location.pathname !== '/') {
-                                        e.currentTarget.style.background = 'transparent'
-                                    }
-                                }}>Dashboard</Link>
+                            onMouseOver={(e) => {
+                                if (location.pathname !== '/') {
+                                    e.currentTarget.style.background = '#f8fafc'
+                                }
+                            }}
+                            onMouseOut={(e) => {
+                                if (location.pathname !== '/') {
+                                    e.currentTarget.style.background = 'transparent'
+                                }
+                            }}>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                                    <polyline points="9 22 9 12 15 12 15 22"/>
+                                </svg>
+                                Dashboard
+                            </Link>
                             <Link to="/projects?action=upload" style={{
-                                padding: '0.875rem 0.75rem',
-                                borderRadius: '10px',
+                                padding: '0.75rem 0.875rem',
+                                borderRadius: '8px',
                                 textDecoration: 'none',
-                                color: location.pathname === '/projects' && location.search.includes('upload') ? '#1e88e5' : '#64748b',
+                                color: location.pathname === '/projects' && location.search.includes('upload') ? '#4285F4' : '#5F6368',
                                 transition: 'all 0.2s',
-                                background: location.pathname === '/projects' && location.search.includes('upload') ? '#e3f2fd' : 'transparent',
+                                background: location.pathname === '/projects' && location.search.includes('upload') ? '#E8F0FE' : 'transparent',
                                 fontWeight: location.pathname === '/projects' && location.search.includes('upload') ? '600' : '500',
-                                fontSize: '0.95rem',
-                                display: 'block'
+                                fontSize: '0.9375rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.75rem'
                             }}
-                                onMouseOver={(e) => {
-                                    if (!(location.pathname === '/projects' && location.search.includes('upload'))) {
-                                        e.currentTarget.style.background = '#f8fafc'
-                                    }
-                                }}
-                                onMouseOut={(e) => {
-                                    if (!(location.pathname === '/projects' && location.search.includes('upload'))) {
-                                        e.currentTarget.style.background = 'transparent'
-                                    }
-                                }}>Upload Project</Link>
+                            onMouseOver={(e) => {
+                                if (!(location.pathname === '/projects' && location.search.includes('upload'))) {
+                                    e.currentTarget.style.background = '#f8fafc'
+                                }
+                            }}
+                            onMouseOut={(e) => {
+                                if (!(location.pathname === '/projects' && location.search.includes('upload'))) {
+                                    e.currentTarget.style.background = 'transparent'
+                                }
+                            }}>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="17 8 12 3 7 8"/>
+                                    <line x1="12" y1="3" x2="12" y2="15"/>
+                                </svg>
+                                Upload Project
+                            </Link>
                             <Link to="/projects" style={{
-                                padding: '0.875rem 0.75rem',
-                                borderRadius: '10px',
+                                padding: '0.75rem 0.875rem',
+                                borderRadius: '8px',
                                 textDecoration: 'none',
-                                color: location.pathname === '/projects' && !location.search.includes('upload') ? '#1e88e5' : '#64748b',
+                                color: location.pathname === '/projects' && !location.search.includes('upload') ? '#4285F4' : '#5F6368',
                                 transition: 'all 0.2s',
-                                background: location.pathname === '/projects' && !location.search.includes('upload') ? '#e3f2fd' : 'transparent',
+                                background: location.pathname === '/projects' && !location.search.includes('upload') ? '#E8F0FE' : 'transparent',
                                 fontWeight: location.pathname === '/projects' && !location.search.includes('upload') ? '600' : '500',
-                                fontSize: '0.95rem',
-                                display: 'block'
+                                fontSize: '0.9375rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.75rem'
                             }}
-                                onMouseOver={(e) => {
-                                    if (!(location.pathname === '/projects' && !location.search.includes('upload'))) {
-                                        e.currentTarget.style.background = '#f8fafc'
-                                    }
-                                }}
-                                onMouseOut={(e) => {
-                                    if (!(location.pathname === '/projects' && !location.search.includes('upload'))) {
-                                        e.currentTarget.style.background = 'transparent'
-                                    }
-                                }}>View Projects</Link>
-                            <Link to="/comments" style={{
-                                padding: '0.875rem 0.75rem',
-                                borderRadius: '10px',
-                                textDecoration: 'none',
-                                color: location.pathname === '/comments' ? '#1e88e5' : '#64748b',
-                                transition: 'all 0.2s',
-                                background: location.pathname === '/comments' ? '#e3f2fd' : 'transparent',
-                                fontWeight: location.pathname === '/comments' ? '600' : '500',
-                                fontSize: '0.95rem',
-                                display: 'block'
+                            onMouseOver={(e) => {
+                                if (!(location.pathname === '/projects' && !location.search.includes('upload'))) {
+                                    e.currentTarget.style.background = '#f8fafc'
+                                }
                             }}
-                                onMouseOver={(e) => {
-                                    if (location.pathname !== '/comments') {
-                                        e.currentTarget.style.background = '#f8fafc'
-                                    }
-                                }}
-                                onMouseOut={(e) => {
-                                    if (location.pathname !== '/comments') {
-                                        e.currentTarget.style.background = 'transparent'
-                                    }
-                                }}>Add Comment</Link>
-                            <Link to="/versions" style={{
-                                padding: '0.875rem 0.75rem',
-                                borderRadius: '10px',
-                                textDecoration: 'none',
-                                color: location.pathname === '/versions' ? '#1e88e5' : '#64748b',
-                                transition: 'all 0.2s',
-                                background: location.pathname === '/versions' ? '#e3f2fd' : 'transparent',
-                                fontWeight: location.pathname === '/versions' ? '600' : '500',
-                                fontSize: '0.95rem',
-                                display: 'block'
-                            }}
-                                onMouseOver={(e) => {
-                                    if (location.pathname !== '/versions') {
-                                        e.currentTarget.style.background = '#f8fafc'
-                                    }
-                                }}
-                                onMouseOut={(e) => {
-                                    if (location.pathname !== '/versions') {
-                                        e.currentTarget.style.background = 'transparent'
-                                    }
-                                }}>View Versions</Link>
+                            onMouseOut={(e) => {
+                                if (!(location.pathname === '/projects' && !location.search.includes('upload'))) {
+                                    e.currentTarget.style.background = 'transparent'
+                                }
+                            }}>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                                </svg>
+                                View Projects
+                            </Link>
                             <Link to="/activity" style={{
-                                padding: '0.875rem 0.75rem',
-                                borderRadius: '10px',
+                                padding: '0.75rem 0.875rem',
+                                borderRadius: '8px',
                                 textDecoration: 'none',
-                                color: location.pathname === '/activity' ? '#1e88e5' : '#64748b',
+                                color: location.pathname === '/activity' ? '#4285F4' : '#5F6368',
                                 transition: 'all 0.2s',
-                                background: location.pathname === '/activity' ? '#e3f2fd' : 'transparent',
+                                background: location.pathname === '/activity' ? '#E8F0FE' : 'transparent',
                                 fontWeight: location.pathname === '/activity' ? '600' : '500',
-                                fontSize: '0.95rem',
-                                display: 'block'
+                                fontSize: '0.9375rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.75rem'
                             }}
-                                onMouseOver={(e) => {
-                                    if (location.pathname !== '/activity') {
-                                        e.currentTarget.style.background = '#f8fafc'
-                                    }
-                                }}
-                                onMouseOut={(e) => {
-                                    if (location.pathname !== '/activity') {
-                                        e.currentTarget.style.background = 'transparent'
-                                    }
-                                }}>Activity Logs</Link>
+                            onMouseOver={(e) => {
+                                if (location.pathname !== '/activity') {
+                                    e.currentTarget.style.background = '#f8fafc'
+                                }
+                            }}
+                            onMouseOut={(e) => {
+                                if (location.pathname !== '/activity') {
+                                    e.currentTarget.style.background = 'transparent'
+                                }
+                            }}>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                                </svg>
+                                Activity Logs
+                            </Link>
                             <Link to="/profile" style={{
-                                padding: '0.875rem 0.75rem',
-                                borderRadius: '10px',
+                                padding: '0.75rem 0.875rem',
+                                borderRadius: '8px',
                                 textDecoration: 'none',
-                                color: location.pathname === '/profile' ? '#1e88e5' : '#64748b',
+                                color: location.pathname === '/profile' ? '#4285F4' : '#5F6368',
                                 transition: 'all 0.2s',
-                                background: location.pathname === '/profile' ? '#e3f2fd' : 'transparent',
+                                background: location.pathname === '/profile' ? '#E8F0FE' : 'transparent',
                                 fontWeight: location.pathname === '/profile' ? '600' : '500',
-                                fontSize: '0.95rem',
-                                display: 'block'
+                                fontSize: '0.9375rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.75rem'
                             }}
-                                onMouseOver={(e) => {
-                                    if (location.pathname !== '/profile') {
-                                        e.currentTarget.style.background = '#f8fafc'
-                                    }
-                                }}
-                                onMouseOut={(e) => {
-                                    if (location.pathname !== '/profile') {
-                                        e.currentTarget.style.background = 'transparent'
-                                    }
-                                }}>Manage Profile</Link>
+                            onMouseOver={(e) => {
+                                if (location.pathname !== '/profile') {
+                                    e.currentTarget.style.background = '#f8fafc'
+                                }
+                            }}
+                            onMouseOut={(e) => {
+                                if (location.pathname !== '/profile') {
+                                    e.currentTarget.style.background = 'transparent'
+                                }
+                            }}>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                    <circle cx="12" cy="7" r="4"/>
+                                </svg>
+                                Manage Profile
+                            </Link>
                         </nav>
                     </aside>
                 )}
-                <div className="content-wrapper" style={{ flex: 1, overflow: 'auto' }}>
+                <div className="content-wrapper" style={{ flex: 1, overflow: 'auto', background: '#F0F4F9' }}>
                     <Routes>
-                        <Route path="/auth" element={user ? <Navigate to="/" replace /> : <Auth />} />
-                        <Route path="/" element={user ? <Dashboard /> : <Navigate to="/auth" replace />} />
-                        <Route path="/projects" element={user ? <Projects /> : <Navigate to="/auth" replace />} />
-                        <Route path="/projects/:id" element={user ? <ProjectDetail /> : <Navigate to="/auth" replace />} />
-                        <Route path="/projects/:id/collaborators" element={user ? <Collaborators /> : <Navigate to="/auth" replace />} />
-                        <Route path="/editor/:projectId/:fileId" element={user ? <Editor /> : <Navigate to="/auth" replace />} />
-                        <Route path="/search" element={user ? <Search /> : <Navigate to="/auth" replace />} />
-                        <Route path="/versions" element={user ? <Versions /> : <Navigate to="/auth" replace />} />
-                        <Route path="/comments" element={user ? <Comments /> : <Navigate to="/auth" replace />} />
-                        <Route path="/profile" element={user ? <Profile /> : <Navigate to="/auth" replace />} />
-                        <Route path="/activity" element={user ? <ActivityLogs /> : <Navigate to="/auth" replace />} />
-                        <Route path="*" element={<Navigate to={user ? "/" : "/auth"} replace />} />
+                    <Route path="/auth" element={user ? <Navigate to="/" replace /> : <Auth />} />
+                    <Route path="/" element={user ? <Dashboard /> : <Navigate to="/auth" replace />} />
+                    <Route path="/projects" element={user ? <Projects /> : <Navigate to="/auth" replace />} />
+                    <Route path="/projects/:id" element={user ? <ProjectDetail /> : <Navigate to="/auth" replace />} />
+                    <Route path="/projects/:id/edit" element={user ? <EditProject /> : <Navigate to="/auth" replace />} />
+                    <Route path="/editor/:projectId/:fileId" element={user ? <Editor /> : <Navigate to="/auth" replace />} />
+                    <Route path="/search" element={user ? <Search /> : <Navigate to="/auth" replace />} />
+                    <Route path="/profile" element={user ? <Profile /> : <Navigate to="/auth" replace />} />
+                    <Route path="/activity" element={user ? <ActivityLogs /> : <Navigate to="/auth" replace />} />
+                    <Route path="*" element={<Navigate to={user ? "/" : "/auth"} replace />} />
                     </Routes>
                 </div>
             </div>
