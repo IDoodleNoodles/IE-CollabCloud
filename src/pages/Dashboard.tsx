@@ -15,8 +15,8 @@ export default function Dashboard() {
     React.useEffect(() => {
         async function loadStats() {
             try {
-                const API_BASE = (import.meta as any).env?.VITE_API_BASE || ''
-                if (API_BASE) {
+                const useApi = (import.meta as any).env?.VITE_API_BASE !== undefined
+                if (useApi) {
                     // In API mode, fetch projects and files from backend
                     const [projects, files] = await Promise.all([
                         api.getProjects(),

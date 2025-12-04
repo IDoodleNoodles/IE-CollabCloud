@@ -2,8 +2,11 @@ package com.collabcloud.controller;
 
 import com.collabcloud.entity.FileEntity;
 import com.collabcloud.entity.ProjectEntity;
+import com.collabcloud.entity.UserEntity;
 import com.collabcloud.service.FileService;
 import com.collabcloud.service.FileStorageService;
+import com.collabcloud.service.FileHistoryService;
+import com.collabcloud.service.UserService;
 import com.collabcloud.repository.ProjectRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,6 +34,12 @@ public class FileController {
 
     @Autowired
     private ProjectRepository projectRepository;
+
+    @Autowired
+    private FileHistoryService fileHistoryService;
+
+    @Autowired
+    private UserService userService;
 
     @GetMapping
     public ResponseEntity<List<FileEntity>> getAllFiles() {
@@ -187,14 +196,31 @@ public class FileController {
             @RequestBody java.util.Map<String, String> payload) {
         try {
             String content = payload.get("content");
+            String userIdStr = payload.get("userId");
             if (content == null) {
                 return ResponseEntity.badRequest().build();
             }
+            
             FileEntity file = fileService.getFileById(fileId)
                     .orElseThrow(() -> new RuntimeException("File not found with id: " + fileId));
+            
+            // Track the change in history before updating
+            UserEntity user = null;
+            if (userIdStr != null) {
+                try {
+                    Long userId = Long.parseLong(userIdStr);
+                    user = userService.getUserById(userId).orElse(null);
+                } catch (NumberFormatException e) {
+                    logger.warn("Invalid userId format: {}", userIdStr);
+                }
+            }
+            
+            fileHistoryService.createHistoryEntry(file, user, content, "UPDATE", "File content updated");
             fileStorageService.updateFileContent(file.getFilePath(), content);
+            
             return ResponseEntity.ok(file);
         } catch (RuntimeException e) {
+            logger.error("Error updating file content: {}", e.getMessage());
             return ResponseEntity.notFound().build();
         }
     }

@@ -29,6 +29,7 @@ function useProvideAuth() {
 
     return {
         user,
+        setUser: save,
         register: async (email: string, password: string, name?: string) => {
             const r = await api.register(email, password, name)
             if (r) {

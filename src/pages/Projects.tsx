@@ -125,8 +125,8 @@ export default function Projects() {
                 throw new Error('Invalid project returned from server')
             }
             // If API mode is enabled, upload files to backend
-            const API_BASE = (import.meta as any).env?.VITE_API_BASE || ''
-            if (API_BASE && projectFiles.length > 0) {
+            const useApi = (import.meta as any).env?.VITE_API_BASE !== undefined
+            if (useApi && projectFiles.length > 0) {
                 try {
                     await api.uploadFiles(String(proj.id), projectFiles as any)
                 } catch (uploadErr) {

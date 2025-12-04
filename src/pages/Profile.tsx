@@ -1,9 +1,10 @@
 import React from 'react'
 import { useAuth } from '../services/auth'
 import { ActivityLogger, ActivityTypes } from '../services/activityLogger'
+import api from '../services/api'
 
 export default function Profile() {
-    const { user } = useAuth()
+    const { user, setUser } = useAuth()
     const [profile, setProfile] = React.useState<any>(() => JSON.parse(localStorage.getItem('collab_profile') || '{}'))
     const [email, setEmail] = React.useState(user?.email || '')
     const [currentPassword, setCurrentPassword] = React.useState('')
@@ -11,32 +12,36 @@ export default function Profile() {
     const [confirmPassword, setConfirmPassword] = React.useState('')
     const [saved, setSaved] = React.useState(false)
     const [error, setError] = React.useState<string | null>(null)
-    const [showPasswordChange, setShowPasswordChange] = React.useState(false)
+    const [loading, setLoading] = React.useState(false)
 
-    function save() { 
-        localStorage.setItem('collab_profile', JSON.stringify(profile))
-        
-        // Update email in user object
-        if (email !== user?.email) {
-            const updatedUser = { ...user, email }
-            localStorage.setItem('collab_user', JSON.stringify(updatedUser))
-            
-            // Update in users list
-            const users = JSON.parse(localStorage.getItem('collab_users') || '[]')
-            const userIndex = users.findIndex((u: any) => u.id === user?.id)
-            if (userIndex !== -1) {
-                users[userIndex].email = email
-                localStorage.setItem('collab_users', JSON.stringify(users))
-            }
-        }
-        
-        ActivityLogger.log(ActivityTypes.UPDATE_PROFILE, `Updated profile information`)
-        setSaved(true)
+    async function save() {
         setError(null)
-        setTimeout(() => setSaved(false), 3000)
+        setLoading(true)
+        
+        try {
+            // Save profile information
+            await api.saveProfile(profile)
+            localStorage.setItem('collab_profile', JSON.stringify(profile))
+            
+            // Update email if changed
+            if (email !== user?.email) {
+                const updatedUser = await api.updateEmail(email)
+                if (setUser) {
+                    setUser(updatedUser)
+                }
+            }
+            
+            ActivityLogger.log(ActivityTypes.UPDATE_PROFILE, `Updated profile information`)
+            setSaved(true)
+            setTimeout(() => setSaved(false), 3000)
+        } catch (err: any) {
+            setError(err.message || 'Failed to update profile')
+        } finally {
+            setLoading(false)
+        }
     }
 
-    function changePassword() {
+    async function changePassword() {
         setError(null)
         
         if (!currentPassword || !newPassword || !confirmPassword) {
@@ -54,28 +59,23 @@ export default function Profile() {
             return
         }
         
-        // Verify current password
-        const users = JSON.parse(localStorage.getItem('collab_users') || '[]')
-        const currentUser = users.find((u: any) => u.id === user?.id)
+        setLoading(true)
         
-        if (!currentUser || currentUser.password !== currentPassword) {
-            setError('Current password is incorrect')
-            return
-        }
-        
-        // Update password
-        const userIndex = users.findIndex((u: any) => u.id === user?.id)
-        if (userIndex !== -1) {
-            users[userIndex].password = newPassword
-            localStorage.setItem('collab_users', JSON.stringify(users))
+        try {
+            // Note: Backend doesn't verify current password - consider adding this security feature
+            await api.updatePassword(currentPassword, newPassword)
+            
             ActivityLogger.log(ActivityTypes.UPDATE_PROFILE, `Changed password`)
             
             setCurrentPassword('')
             setNewPassword('')
             setConfirmPassword('')
-            setShowPasswordChange(false)
             setSaved(true)
             setTimeout(() => setSaved(false), 3000)
+        } catch (err: any) {
+            setError(err.message || 'Failed to change password')
+        } finally {
+            setLoading(false)
         }
     }
 
@@ -312,29 +312,31 @@ export default function Profile() {
                         {/* Save Button */}
                         <button
                             onClick={save}
+                            disabled={loading}
                             style={{
                                 width: '100%',
                                 padding: '0.75rem 1.5rem',
-                                backgroundColor: '#4285F4',
+                                backgroundColor: loading ? '#9CA3AF' : '#4285F4',
                                 color: 'white',
                                 border: 'none',
                                 borderRadius: '0.5rem',
                                 fontSize: '0.9375rem',
                                 fontWeight: '500',
-                                cursor: 'pointer',
+                                cursor: loading ? 'not-allowed' : 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 gap: '0.5rem',
-                                transition: 'all 0.2s'
+                                transition: 'all 0.2s',
+                                opacity: loading ? 0.6 : 1
                             }}
-                            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#3367D6'}
-                            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#4285F4'}
+                            onMouseOver={(e) => !loading && (e.currentTarget.style.backgroundColor = '#3367D6')}
+                            onMouseOut={(e) => !loading && (e.currentTarget.style.backgroundColor = '#4285F4')}
                         >
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
                                 <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/>
                             </svg>
-                            {saved ? 'Saved!' : 'Save Changes'}
+                            {loading ? 'Saving...' : saved ? 'Saved!' : 'Save Changes'}
                         </button>
                     </div>
 
@@ -466,30 +468,32 @@ export default function Profile() {
                         {/* Update Password Button */}
                         <button
                             onClick={changePassword}
+                            disabled={loading}
                             style={{
                                 width: '100%',
                                 padding: '0.75rem 1.5rem',
-                                backgroundColor: '#4285F4',
+                                backgroundColor: loading ? '#9CA3AF' : '#4285F4',
                                 color: 'white',
                                 border: 'none',
                                 borderRadius: '0.5rem',
                                 fontSize: '0.9375rem',
                                 fontWeight: '500',
-                                cursor: 'pointer',
+                                cursor: loading ? 'not-allowed' : 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 gap: '0.5rem',
-                                transition: 'all 0.2s'
+                                transition: 'all 0.2s',
+                                opacity: loading ? 0.6 : 1
                             }}
-                            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#3367D6'}
-                            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#4285F4'}
+                            onMouseOver={(e) => !loading && (e.currentTarget.style.backgroundColor = '#3367D6')}
+                            onMouseOut={(e) => !loading && (e.currentTarget.style.backgroundColor = '#4285F4')}
                         >
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
                                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                                 <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                             </svg>
-                            Update Password
+                            {loading ? 'Updating...' : 'Update Password'}
                         </button>
                     </div>
                 </div>

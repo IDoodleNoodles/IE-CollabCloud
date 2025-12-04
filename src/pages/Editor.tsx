@@ -26,11 +26,12 @@ export default function Editor() {
                 const urlParams = new URLSearchParams(window.location.search)
                 const versionId = urlParams.get('versionId')
 
+                const useApi = (import.meta as any).env?.VITE_API_BASE !== undefined
                 const API_BASE = (import.meta as any).env?.VITE_API_BASE || ''
 
                 let p: any, f: any
 
-                if (API_BASE) {
+                if (useApi) {
                     // Load from backend API
                     console.log('[Editor] Loading from API...')
                     p = await api.getProject(projectId as string)
@@ -80,7 +81,7 @@ export default function Editor() {
                 ActivityLogger.log(ActivityTypes.EDIT_FILE, `Opened file for editing: ${f.name}`)
 
                 // Load file content
-                if (API_BASE && f.dataUrl && !f.dataUrl.startsWith('data:')) {
+                if (useApi && f.dataUrl && !f.dataUrl.startsWith('data:')) {
                     // File is stored on backend, fetch it
                     console.log('[Editor] Fetching file content from backend:', f.dataUrl)
 
@@ -89,7 +90,7 @@ export default function Editor() {
 
                     if (isImage) {
                         // For images, just set the URL for preview
-                        const imagePreviewUrl = `${API_BASE}/api/files/${fileId}/download`
+                        const imagePreviewUrl = `/api/files/${fileId}/download`
                         setImageUrl(imagePreviewUrl)
                         console.log('[Editor] Image file, using preview URL:', imagePreviewUrl)
                         setLoading(false)
@@ -99,7 +100,7 @@ export default function Editor() {
                     try {
                         // Add timestamp to prevent caching
                         const cacheBuster = `?t=${Date.now()}`
-                        const response = await fetch(`${API_BASE}/api/files/${fileId}/download${cacheBuster}`, {
+                        const response = await fetch(`/api/files/${fileId}/download${cacheBuster}`, {
                             cache: 'no-store'
                         })
                         if (response.ok) {
@@ -180,16 +181,25 @@ export default function Editor() {
 
         try {
             const API_BASE = (import.meta as any).env?.VITE_API_BASE || ''
+            const useApi = (import.meta as any).env?.VITE_API_BASE !== undefined
+
+            // Get current user for tracking
+            const userStr = localStorage.getItem('collab_user')
+            const user = userStr ? JSON.parse(userStr) : null
+            const userId = user?.userId || user?.id
 
             // Update file content on backend
-            if (API_BASE) {
-                await fetch(`${API_BASE}/api/files/${fileId}/content`, {
+            if (useApi) {
+                await fetch(`/api/files/${fileId}/content`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${localStorage.getItem('collab_token')}`
                     },
-                    body: JSON.stringify({ content })
+                    body: JSON.stringify({ 
+                        content,
+                        userId: userId ? String(userId) : undefined
+                    })
                 })
             }
 

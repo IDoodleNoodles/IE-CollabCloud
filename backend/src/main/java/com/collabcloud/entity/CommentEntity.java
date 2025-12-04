@@ -24,10 +24,12 @@ public class CommentEntity {
 
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnoreProperties({ "createdProjects", "collaboratingProjects", "comments", "password", "bio", "profilePicture", "lastLogin" })
     private UserEntity user;
 
     @ManyToOne(optional = true)
     @JoinColumn(name = "file_id", nullable = true)
+    @JsonIgnoreProperties({ "project", "versions", "comments" })
     private FileEntity file;
 
     // Constructors

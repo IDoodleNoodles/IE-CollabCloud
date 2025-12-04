@@ -33,8 +33,12 @@ public class ProjectEntity {
     private UserEntity creator;
 
     @ManyToMany
-    @JoinTable(name = "project_collaborators", joinColumns = @JoinColumn(name = "project_id"), inverseJoinColumns = @JoinColumn(name = "user_id"))
-    @JsonIgnoreProperties({ "createdProjects", "collaboratingProjects", "comments", "password" })
+    @JoinTable(
+        name = "project_collaborators",
+        joinColumns = @JoinColumn(name = "project_id"),
+        inverseJoinColumns = @JoinColumn(name = "user_id")
+    )
+    @JsonIgnoreProperties({ "createdProjects", "collaboratingProjects", "comments", "password", "bio", "profilePicture", "lastLogin" })
     private Set<UserEntity> collaborators = new HashSet<>();
 
     @OneToMany(mappedBy = "project", cascade = CascadeType.ALL)
