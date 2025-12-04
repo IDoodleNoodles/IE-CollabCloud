@@ -51,7 +51,7 @@ export const FileCard = React.memo<FileCardProps>(({
 
     const handleDelete = (e: React.MouseEvent) => {
         e.stopPropagation()
-        if (onDelete && window.confirm(`Are you sure you want to delete ${file.filename}?`)) {
+        if (onDelete && window.confirm(`Are you sure you want to delete ${file.name}?`)) {
             onDelete(file.id)
         }
     }
@@ -69,7 +69,7 @@ export const FileCard = React.memo<FileCardProps>(({
             }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                        <span style={{ fontSize: '1.5rem' }}>{getFileIcon(file.filename)}</span>
+                        <span style={{ fontSize: '1.5rem' }}>{getFileIcon(file.name)}</span>
                         <h4 style={{ 
                             margin: 0,
                             fontSize: '1rem',
@@ -79,10 +79,10 @@ export const FileCard = React.memo<FileCardProps>(({
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap'
                         }}>
-                            {file.filename}
+                            {file.name}
                         </h4>
                     </div>
-                    {file.description && (
+                    {(file as any).description && (
                         <p style={{ 
                             margin: 0,
                             color: '#64748b',
@@ -91,7 +91,7 @@ export const FileCard = React.memo<FileCardProps>(({
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap'
                         }}>
-                            {file.description}
+                            {(file as any).description}
                         </p>
                     )}
                 </div>
@@ -109,7 +109,7 @@ export const FileCard = React.memo<FileCardProps>(({
                         }}
                         onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
                         onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                        aria-label={`Delete ${file.filename}`}
+                        aria-label={`Delete ${file.name}`}
                     >
                         🗑️
                     </button>
@@ -126,10 +126,9 @@ export const FileCard = React.memo<FileCardProps>(({
                 color: '#64748b',
                 gap: '1rem'
             }}>
-                <div style={{ display: 'flex', gap: '1rem', flex: 1 }}>
-                    <span>Uploaded by {file.uploadedBy}</span>
-                    <span>{formatDate(file.uploadedAt)}</span>
-                </div>
+                    <div style={{ display: 'flex', gap: '1rem', flex: 1 }}>
+                        <span>{formatDate(new Date(file.uploadedAt))}</span>
+                    </div>
                 {commentCount > 0 && (
                     <Badge variant="info" size="sm">
                         💬 {commentCount}

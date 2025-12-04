@@ -3,10 +3,13 @@ import { Link } from 'react-router-dom'
 import { ActivityLogModel } from '../models'
 
 export default function ActivityLogs() {
-    const [logs, setLogs] = React.useState<any[]>(() => {
-        const stored = localStorage.getItem('collab_activity_logs')
-        return stored ? JSON.parse(stored) : []
-    })
+    const [logs, setLogs] = React.useState<any[]>([])
+
+    React.useEffect(() => {
+        let mounted = true
+        fetch('/api/activity-logs').then(r => r.ok ? r.json() : []).then(data => { if (mounted) setLogs(data || []) }).catch(() => {})
+        return () => { mounted = false }
+    }, [])
 
     function getActionIcon(actionType: string): { icon: JSX.Element; bg: string; color: string } {
         const iconMap: Record<string, { icon: JSX.Element; bg: string; color: string }> = {
@@ -136,7 +139,8 @@ export default function ActivityLogs() {
     function clearLogs() {
         if (window.confirm('Clear all activity logs?')) {
             setLogs([])
-            localStorage.removeItem('collab_activity_logs')
+            // Try deleting server-side logs if supported
+            fetch('/api/activity-logs', { method: 'DELETE' }).catch(() => {})
         }
     }
 

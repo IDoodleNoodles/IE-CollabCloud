@@ -4,6 +4,7 @@
 
 export interface User {
     id: string
+    userId?: string
     email: string
     name?: string
     password?: string
@@ -28,6 +29,8 @@ export interface Project {
     name: string
     description?: string
     files: ProjectFile[]
+    collaborators?: Collaborator[]
+    visibility?: string
     ownerId?: string
     createdAt: number
     updatedAt?: number
@@ -58,6 +61,10 @@ export interface Version {
     message: string
     author: string
     ts: number
+    versionNumber?: string
+    createdAt?: number
+    createdBy?: string
+    changes?: string
 }
 
 export interface CreateVersionDTO {

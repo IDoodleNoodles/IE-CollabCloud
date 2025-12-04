@@ -1,6 +1,7 @@
 import React from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ActivityLogger, ActivityTypes } from '../services/activityLogger'
+import api from '../services/api'
 import { isTextFile } from '../utils/helpers'
 
 export default function Search() {
@@ -38,54 +39,63 @@ export default function Search() {
         ActivityLogger.log(ActivityTypes.SEARCH_FILES, `Searched for: ${searchQuery}`)
 
         setTimeout(() => {
-            const allResults: any[] = []
-            const lowerQuery = searchQuery.toLowerCase()
+            ;(async () => {
+                try {
+                    const allResults: any[] = []
+                    const lowerQuery = searchQuery.toLowerCase()
 
-            // Search files
-            const projects = JSON.parse(localStorage.getItem('collab_projects') || '[]')
-            projects.forEach((project: any) => {
-                project.files.forEach((file: any) => {
-                    if (file.name.toLowerCase().includes(lowerQuery)) {
-                        allResults.push({
-                            type: 'file',
-                            id: file.id,
-                            name: file.name,
-                            projectId: project.id,
-                            projectName: project.name,
-                            fileType: file.type || 'unknown'
-                        })
+                    // Fetch projects and search files
+                    const projects = await api.getProjects()
+                    for (const project of (projects || [])) {
+                        const files = project.files && project.files.length ? project.files : await api.getFilesByProject(String(project.id))
+                        for (const file of (files || [])) {
+                            if ((file.name || '').toLowerCase().includes(lowerQuery)) {
+                                allResults.push({
+                                    type: 'file',
+                                    id: file.id,
+                                    name: file.name,
+                                    projectId: project.id,
+                                    projectName: project.name,
+                                    fileType: file.type || 'unknown'
+                                })
+                            }
+                        }
                     }
-                })
-            })
 
-            // Search projects
-            projects
-                .filter((p: any) => p.name.toLowerCase().includes(lowerQuery))
-                .forEach((p: any) => {
-                    allResults.push({
-                        type: 'project',
-                        id: p.id,
-                        name: p.name,
-                        filesCount: p.files.length
-                    })
-                })
+                    // Search projects by name
+                    (projects || [])
+                        .filter((p: any) => (p.name || '').toLowerCase().includes(lowerQuery))
+                        .forEach((p: any) => {
+                            allResults.push({
+                                type: 'project',
+                                id: p.id,
+                                name: p.name,
+                                filesCount: p.files ? p.files.length : 0
+                            })
+                        })
 
-            // Search users
-            const users = JSON.parse(localStorage.getItem('collab_users') || '[]')
-            users
-                .filter((u: any) => u.email.toLowerCase().includes(lowerQuery))
-                .forEach((u: any) => {
-                    allResults.push({
-                        type: 'user',
-                        id: u.id,
-                        email: u.email
-                    })
-                })
+                    // Search users via backend
+                    const users = await api.getUsers()
+                    ;(users || [])
+                        .filter((u: any) => (u.email || '').toLowerCase().includes(lowerQuery))
+                        .forEach((u: any) => {
+                            allResults.push({
+                                type: 'user',
+                                id: u.id,
+                                email: u.email
+                            })
+                        })
 
-            // Only keep files
-            const fileResults = allResults.filter(r => r.type === 'file')
-            setResults(fileResults)
-            setSearching(false)
+                    // Only keep files
+                    const fileResults = allResults.filter(r => r.type === 'file')
+                    setResults(fileResults)
+                } catch (err) {
+                    console.warn('[Search] performSearch failed', err)
+                    setResults([])
+                } finally {
+                    setSearching(false)
+                }
+            })()
         }, 200)
     }
 

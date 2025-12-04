@@ -27,7 +27,7 @@ These still reference localStorage but api.ts handles all data:
 - ⏳ Remove Forums localStorage usage (low priority)
 
 ## Migration Strategy
-1. Keep `collab_user` and `collab_token` in localStorage (for session management)
+1. Use the centralized `session` service (cookies + in-memory) for session management — do not rely on `localStorage`
 2. Remove ALL other localStorage fallbacks - require API backend
 3. All data flows through SQL database via REST API
 4. File content stored on disk, paths in database

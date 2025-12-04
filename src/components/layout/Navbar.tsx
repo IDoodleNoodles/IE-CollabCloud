@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../services/auth'
+import api from '../../services/api'
 
 export const Navbar = React.memo(() => {
     const { user, logout } = useAuth()
@@ -22,9 +23,15 @@ export const Navbar = React.memo(() => {
         }
     }
 
+    const [profile, setProfile] = useState<any>(null)
+    React.useEffect(() => {
+        let mounted = true
+        api.getProfile().then(p => { if (mounted) setProfile(p) }).catch(() => {})
+        return () => { mounted = false }
+    }, [])
+
     const getDisplayName = () => {
-        const profile = JSON.parse(localStorage.getItem('collab_profile') || '{}')
-        const fullName = profile.name || user?.name || ''
+        const fullName = profile?.name || user?.name || ''
         return fullName ? fullName.split(' ')[0] : user?.email?.split('@')[0] || 'User'
     }
 

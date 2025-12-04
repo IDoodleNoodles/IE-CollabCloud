@@ -5,7 +5,7 @@ import api from '../services/api'
 
 export default function Profile() {
     const { user, setUser } = useAuth()
-    const [profile, setProfile] = React.useState<any>(() => JSON.parse(localStorage.getItem('collab_profile') || '{}'))
+    const [profile, setProfile] = React.useState<any>({})
     const [email, setEmail] = React.useState(user?.email || '')
     const [currentPassword, setCurrentPassword] = React.useState('')
     const [newPassword, setNewPassword] = React.useState('')
@@ -21,7 +21,7 @@ export default function Profile() {
         try {
             // Save profile information
             await api.saveProfile(profile)
-            localStorage.setItem('collab_profile', JSON.stringify(profile))
+            // profile persisted on the backend and session updated by api.saveProfile
             
             // Update email if changed
             if (email !== user?.email) {
@@ -40,6 +40,22 @@ export default function Profile() {
             setLoading(false)
         }
     }
+
+    React.useEffect(() => {
+        let mounted = true
+        async function loadProfile() {
+            try {
+                const p = await api.getProfile()
+                if (!mounted) return
+                setProfile(p || {})
+                if (p && p.name) setEmail(user?.email || '')
+            } catch (err) {
+                console.warn('[Profile] Failed to load profile', err)
+            }
+        }
+        loadProfile()
+        return () => { mounted = false }
+    }, [user])
 
     async function changePassword() {
         setError(null)

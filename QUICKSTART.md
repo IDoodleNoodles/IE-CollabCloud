@@ -42,7 +42,7 @@ Create `.env` file in root directory:
 VITE_API_BASE=http://localhost:8080
 ```
 
-**Note:** If you omit this file, the app will use localStorage mode (no backend required).
+**Note:** This project requires `VITE_API_BASE` and a running backend. The application no longer supports a localStorage-only mode.
 
 ### 3. Run Frontend
 ```bash
@@ -139,10 +139,7 @@ Frontend will start on **http://localhost:5173**
 
 ## Development Mode
 
-To run in localStorage mode (no backend needed):
-1. Remove or rename the `.env` file
-2. Run `npm run dev`
-3. All data will be stored in browser localStorage
+This project runs against the backend API. Ensure you have a running backend and `VITE_API_BASE` configured in `.env` before starting the frontend.
 
 ## Production Deployment
 

@@ -1,41 +1,33 @@
 // Activity Logger Service - logs all user actions
 
+import api from './api'
+import session from './session'
+
 export class ActivityLogger {
-    private static getStoredLogs(): any[] {
-        const stored = localStorage.getItem('collab_activity_logs')
-        return stored ? JSON.parse(stored) : []
-    }
-
-    private static saveLogs(logs: any[]): void {
-        // Keep only last 100 logs to prevent storage overflow
-        const recentLogs = logs.slice(0, 100)
-        localStorage.setItem('collab_activity_logs', JSON.stringify(recentLogs))
-    }
-
-    static log(actionType: string, actionDetails?: string): void {
-        const user = localStorage.getItem('collab_user')
-        const userID = user ? JSON.parse(user).id : 'anonymous'
-        
-        const activityID = 'log_' + Date.now()
-        const activity = {
-            activityID,
-            userID,
-            actionType,
-            actionDetails,
-            timestamp: Date.now()
+    static async log(actionType: string, actionDetails?: string, projectId?: string | number): Promise<void> {
+        try {
+            await api.logActivity(actionType, actionDetails, projectId)
+        } catch (err) {
+            // Fallback: silently ignore logging errors
+            console.warn('[ActivityLogger] Failed to send activity to server:', err)
         }
-
-        const logs = this.getStoredLogs()
-        logs.unshift(activity)
-        this.saveLogs(logs)
     }
 
-    static getLogs(): any[] {
-        return this.getStoredLogs()
+    static async getLogs(): Promise<any[]> {
+        // Try fetching from backend endpoint
+        try {
+            const res = await fetch('/api/activity-logs')
+            if (res.ok) return await res.json()
+            return []
+        } catch (err) {
+            console.warn('[ActivityLogger] Failed to fetch logs:', err)
+            return []
+        }
     }
 
     static clearLogs(): void {
-        localStorage.setItem('collab_activity_logs', '[]')
+        // Clearing server-side logs not implemented in frontend
+        console.warn('[ActivityLogger] clearLogs called: not implemented')
     }
 }
 
@@ -45,6 +37,7 @@ export const ActivityTypes = {
     LOGIN: 'LOGIN',
     LOGOUT: 'LOGOUT',
     CREATE_PROJECT: 'CREATE_PROJECT',
+    DELETE_PROJECT: 'DELETE_PROJECT',
     UPLOAD_FILE: 'UPLOAD_FILE',
     UPLOAD_PROJECT: 'UPLOAD_PROJECT',
     VIEW_PROJECTS: 'VIEW_PROJECTS',

@@ -20,9 +20,9 @@ export function useProjects() {
         }
     }, [])
 
-    const createProject = useCallback(async (name: string, files: any[]) => {
+    const createProject = useCallback(async (name: string, files: any[], description: string = '') => {
         try {
-            const newProject = await api.createProject(name, files)
+            const newProject = await api.createProject(name, files, description)
             setProjects(prev => [newProject, ...prev])
             return newProject
         } catch (err) {

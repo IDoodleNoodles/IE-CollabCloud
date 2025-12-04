@@ -2,6 +2,7 @@ import React from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { nanoid } from 'nanoid'
 import api from '../services/api'
+import { ActivityLogger, ActivityTypes } from '../services/activityLogger'
 import { useAuth } from '../services/auth'
 
 export default function EditProject() {
@@ -139,11 +140,33 @@ export default function EditProject() {
             return
         }
 
+        // If there are selected files (dragged/dropped), convert them to file metadata
+        // and merge into the files list so they are included in the save.
+        let mergedFiles = files
+        if (selectedFiles.length > 0) {
+            try {
+                const fileMetas = await Promise.all(selectedFiles.map(f => new Promise<any>((res) => {
+                    const reader = new FileReader()
+                    reader.onload = () => res({ id: nanoid(), name: f.name, type: f.type, dataUrl: reader.result as string, uploadedAt: Date.now() })
+                    reader.readAsDataURL(f)
+                })))
+                mergedFiles = [...files, ...fileMetas]
+                // update local state so UI reflects added files immediately
+                setFiles(mergedFiles)
+                setSelectedFiles([])
+                setPreviews([])
+            } catch (err) {
+                console.error('[EditProject] Error processing selected files:', err)
+                alert('Failed to process selected files')
+                return
+            }
+        }
+
         const updatedProject = {
             ...project,
             name: projectName,
             description: description,
-            files: files,
+            files: mergedFiles,
             updatedAt: Date.now()
         }
 
@@ -153,6 +176,19 @@ export default function EditProject() {
             navigate(`/projects/${id}`)
         } catch (error) {
             alert('Failed to update project')
+        }
+    }
+
+    const handleDeleteProject = async () => {
+        if (!window.confirm('Delete this project? This cannot be undone.')) return
+        try {
+            await api.deleteProject(id as string)
+            ActivityLogger.log(ActivityTypes.DELETE_PROJECT, `Deleted project: ${projectName}`, id)
+            alert('Project deleted')
+            navigate('/projects')
+        } catch (err) {
+            console.error('[EditProject] Failed to delete project', err)
+            alert('Failed to delete project')
         }
     }
 
@@ -382,33 +418,7 @@ export default function EditProject() {
                         </div>
                     )}
 
-                    {selectedFiles.length > 0 && (
-                        <button
-                            onClick={handleAddSelectedFiles}
-                            style={{
-                                width: '100%',
-                                padding: '0.75rem',
-                                background: '#4285F4',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontSize: '14px',
-                                fontWeight: '500',
-                                cursor: 'pointer',
-                                marginBottom: '1rem',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '0.5rem'
-                            }}
-                        >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <line x1="12" y1="5" x2="12" y2="19" />
-                                <line x1="5" y1="12" x2="19" y2="12" />
-                            </svg>
-                            Add {selectedFiles.length} File{selectedFiles.length > 1 ? 's' : ''} to Project
-                        </button>
-                    )}
+                    {/* Selected files will be added automatically when saving. */}
 
                     {/* Files List */}
                     <div style={{
@@ -482,58 +492,13 @@ export default function EditProject() {
 
                     </div>
 
-                    {/* Add File Input */}
-                    <div style={{ display: 'flex', gap: '0.75rem' }}>
-                        <input
-                            type="text"
-                            value={newFileName}
-                            onChange={(e) => setNewFileName(e.target.value)}
-                            placeholder="Enter file name (e.g., document.pdf)"
-                            onKeyPress={(e) => {
-                                if (e.key === 'Enter') {
-                                    handleAddFile()
-                                }
-                            }}
-                            style={{
-                                flex: 1,
-                                padding: '0.75rem',
-                                fontSize: '14px',
-                                border: '1px solid #DADCE0',
-                                borderRadius: '8px',
-                                outline: 'none',
-                                boxSizing: 'border-box',
-                                fontFamily: 'inherit'
-                            }}
-                        />
-                        <button
-                            onClick={handleAddFile}
-                            style={{
-                                padding: '0.75rem 1.5rem',
-                                background: '#4285F4',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontSize: '14px',
-                                fontWeight: '500',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.5rem',
-                                whiteSpace: 'nowrap'
-                            }}
-                        >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <line x1="12" y1="5" x2="12" y2="19" />
-                                <line x1="5" y1="12" x2="19" y2="12" />
-                            </svg>
-                            Add
-                        </button>
-                    </div>
+                    {/* Manual add controls removed — files selected above will be included when saving. */}
                 </div>
 
                 {/* Save Changes Button */}
-                <button
-                    onClick={handleSaveChanges}
+                <div style={{display: 'flex', gap: '0.75rem', flexDirection: 'column'}}>
+                    <button
+                        onClick={handleSaveChanges}
                     style={{
                         width: '100%',
                         padding: '1rem',
@@ -555,7 +520,33 @@ export default function EditProject() {
                         <polyline points="20 6 9 17 4 12" />
                     </svg>
                     Save Changes
-                </button>
+                    </button>
+
+                    <button
+                        onClick={handleDeleteProject}
+                        style={{
+                            width: '100%',
+                            padding: '0.75rem',
+                            background: '#EA4335',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '0.5rem'
+                        }}
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg>
+                        Delete Project
+                    </button>
+                </div>
             </div>
         </div>
     )

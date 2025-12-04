@@ -97,13 +97,13 @@ export const VersionHistory = React.memo<VersionHistoryProps>(({
                             <div style={{ flex: 1 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
                                     <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '600', color: '#1e293b' }}>
-                                        Version {version.versionNumber}
+                                                    Version {version.versionNumber || version.id}
                                     </h4>
                                     {isLatest && <Badge variant="success" size="sm">Current</Badge>}
                                 </div>
-                                <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>
-                                    {formatDate(version.createdAt)} by {version.createdBy}
-                                </p>
+                                            <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>
+                                                {formatDate(version.createdAt ? new Date(version.createdAt) : new Date(version.ts))} by {version.createdBy || version.author}
+                                            </p>
                             </div>
                             <span style={{ 
                                 fontSize: '1.25rem',

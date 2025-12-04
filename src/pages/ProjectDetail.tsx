@@ -5,6 +5,7 @@ import api from '../services/api'
 import { useAuth } from '../services/auth'
 import { downloadFile, getFileTypeLabel, formatFileSize, getFileSizeFromDataUrl, isTextFile, getTimeAgo, encodeToBase64 } from '../utils/helpers'
 import { ActivityLogger, ActivityTypes } from '../services/activityLogger'
+import session from '../services/session'
 import Collaborators from './Collaborators'
 
 type Comment = { id: string; projectId: string; text: string; author: string; authorEmail: string; ts: number; message: string }
@@ -23,7 +24,7 @@ export default function ProjectDetail() {
     const [selectedFileForHistory, setSelectedFileForHistory] = React.useState<any>(null)
     const [showHistoryContent, setShowHistoryContent] = React.useState(false)
     const [selectedHistoryEntry, setSelectedHistoryEntry] = React.useState<any>(null)
-    const profile = JSON.parse(localStorage.getItem('collab_profile') || '{}')
+    const profile = session.getUser() || {}
 
     React.useEffect(() => {
         async function load() {
@@ -31,8 +32,7 @@ export default function ProjectDetail() {
             try {
                 const p: any = await api.getProject(id as string)
                 setProject(p)
-                const useApi = (import.meta as any).env?.VITE_API_BASE !== undefined
-                if (useApi) {
+                try {
                     const files = await api.getFilesByProject(String(p.id))
                     // Merge files into project if backend doesn't include them
                     setProject((prev: any) => ({ ...prev, files }))
@@ -49,10 +49,9 @@ export default function ProjectDetail() {
                         message: c.text
                     }))
                     setComments(adapted)
-                } else {
-                    const allComments = JSON.parse(localStorage.getItem('collab_project_comments') || '[]')
-                    const projectComments = allComments.filter((c: Comment) => c.projectId === p.id)
-                    setComments(projectComments)
+                } catch (e) {
+                    console.warn('[ProjectDetail] Failed to load comments/files from API:', e)
+                    setComments([])
                 }
             } catch (e) {
                 setProject(null)
@@ -73,43 +72,25 @@ export default function ProjectDetail() {
 
     async function addComment() {
         if (!commentText.trim()) return
-        const useApi = (import.meta as any).env?.VITE_API_BASE !== undefined
-        if (useApi) {
-            try {
-                const c = await api.postComment(commentText, String(project.id))
-                setComments([c as any, ...comments])
-            } catch (err: any) {
-                alert('Error posting comment: ' + err.message)
-            }
-        } else {
-            const author = profile.name || user?.name || user?.email?.split('@')[0] || 'User'
-            const authorEmail = user?.email || 'unknown@email.com'
-            const comment: Comment = {
-                id: nanoid(),
-                projectId: project.id,
-                text: commentText,
-                message: commentText,
-                author,
-                authorEmail,
-                ts: Date.now()
-            }
-            const allComments = JSON.parse(localStorage.getItem('collab_project_comments') || '[]')
-            allComments.push(comment)
-            localStorage.setItem('collab_project_comments', JSON.stringify(allComments))
-            setComments([...comments, comment])
+        try {
+            const c = await api.postComment(commentText, String(project.id))
+            setComments([c as any, ...comments])
+        } catch (err: any) {
+            alert('Error posting comment: ' + err.message)
         }
-        ActivityLogger.log(ActivityTypes.ADD_COMMENT, `Added comment on project: ${project.name}`)
+        ActivityLogger.log(ActivityTypes.ADD_COMMENT, `Added comment on project: ${project.name}`, project.id)
         setCommentText('')
     }
 
-    function deleteComment(commentId: string) {
+    async function deleteComment(commentId: string) {
         if (!confirm('Delete this comment?')) return
-
-        const allComments = JSON.parse(localStorage.getItem('collab_project_comments') || '[]')
-        const filtered = allComments.filter((c: Comment) => c.id !== commentId)
-        localStorage.setItem('collab_project_comments', JSON.stringify(filtered))
-        setComments(comments.filter(c => c.id !== commentId))
-        ActivityLogger.log(ActivityTypes.DELETE_COMMENT, `Deleted comment on project: ${project.name}`)
+        try {
+            await api.deleteComment(commentId)
+            setComments(comments.filter(c => c.id !== commentId))
+            ActivityLogger.log(ActivityTypes.DELETE_COMMENT, `Deleted comment on project: ${project.name}`, project.id)
+        } catch (err: any) {
+            alert('Error deleting comment: ' + (err?.message || 'unknown'))
+        }
     }
 
     function getInitials(name: string) {
@@ -155,8 +136,7 @@ export default function ProjectDetail() {
         }
 
         try {
-            const userStr = localStorage.getItem('collab_user')
-            const user = userStr ? JSON.parse(userStr) : null
+            const user = session.getUser()
             const userId = user?.userId || user?.id
 
             await fetch(`/api/files/${selectedFileForHistory.id}/content`, {
@@ -178,29 +158,17 @@ export default function ProjectDetail() {
         }
     }
 
-    function restoreVersion(v: any) {
+    async function restoreVersion(v: any) {
         if (!confirm(`Restore version: "${v.message}"? This will overwrite the current file.`)) return
-        const useApi = (import.meta as any).env?.VITE_API_BASE !== undefined
-        if (useApi) {
-            api.restoreVersion(String(v.projectId), String(v.fileId), String(v.id))
-                .then(() => alert('✅ Version restored successfully!'))
-                .catch((err: any) => alert('Error restoring version: ' + err.message))
-        } else {
-            const all = JSON.parse(localStorage.getItem('collab_projects') || '[]')
-            const p = all.find((x: any) => x.id === v.projectId)
-            if (!p) return alert('Project not found')
-            const f = p.files.find((x: any) => x.id === v.fileId)
-            if (!f) return alert('File not found')
-            const b64 = encodeToBase64(v.content)
-            f.dataUrl = 'data:text/plain;base64,' + b64
-            localStorage.setItem('collab_projects', JSON.stringify(all))
+        try {
+            await api.restoreVersion(String(v.projectId), String(v.fileId), String(v.id))
             alert('✅ Version restored successfully!')
-            // Refresh project
-            api.getProject(id as string).then((updatedProject: any) => setProject(updatedProject))
+        } catch (err: any) {
+            alert('Error restoring version: ' + (err?.message || 'unknown'))
         }
     }
 
-    // Load collaborators: API mode uses project.collaborators; fallback uses localStorage
+    // Load collaborators: API mode uses `project.collaborators`
     const collaborators = React.useMemo((): Array<{ id: string; email: string; name?: string; permission: string; addedAt: number; color: string }> => {
         if (!project) return []
         const useApi = (import.meta as any).env?.VITE_API_BASE !== undefined
@@ -219,11 +187,15 @@ export default function ProjectDetail() {
                 }
             })
         }
-        const collabs = JSON.parse(localStorage.getItem(`collab_project_${project.id}_collaborators`) || '[]')
-        return collabs.map((c: any) => ({
-            ...c,
-            color: c.color || (['#6366F1', '#8B5CF6', '#EC4899'][c.email.codePointAt(0) % 3])
-        }))
+        if (!project) return []
+        if (Array.isArray(project.collaborators)) {
+            return project.collaborators.map((c: any) => ({
+                ...c,
+                id: String(c.id || c.userId),
+                color: c.color || (['#6366F1', '#8B5CF6', '#EC4899'][c.email.codePointAt(0) % 3])
+            }))
+        }
+        return []
     }, [project])
 
     if (loading) {
@@ -364,7 +336,7 @@ export default function ProjectDetail() {
                                     color: '#202124',
                                     margin: 0,
                                     fontWeight: '500'
-                                }}>{profile.name || user?.name || 'Sharaine Salutan'}</p>
+                                }}>{profile?.name || user?.name || 'Sharaine Salutan'}</p>
                             </div>
                             <div>
                                 <p style={{

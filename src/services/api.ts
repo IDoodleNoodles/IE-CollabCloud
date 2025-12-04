@@ -8,6 +8,8 @@ import type {
     Profile
 } from '../types'
 
+import session from './session'
+
 // API adapter: All operations now use the REST API backed by SQL database
 // Use empty string for relative URLs (proxied by Vite in dev)
 const API_BASE: string = (import.meta as any).env?.VITE_API_BASE !== undefined 
@@ -20,7 +22,7 @@ if ((import.meta as any).env?.VITE_API_BASE === undefined) {
 
 async function restFetch(path: string, opts: RequestInit = {}): Promise<any> {
     const headers: Record<string, string> = opts.headers ? { ...(opts.headers as Record<string, string>) } : {}
-    const token = localStorage.getItem('collab_token')
+    const token = session.getToken()
     if (token) {
         headers['Authorization'] = `Bearer ${token}`
     }
@@ -101,7 +103,11 @@ function mapServerVersion(v: any) {
         message: v.versionMessage || v.message || '',
         author: v.user?.email || v.author || 'Anonymous',
         ts: v.timestamp ? new Date(v.timestamp).getTime() : Date.now(),
-        versionNumber: v.versionNumber || ''
+        versionNumber: v.versionNumber || '',
+        // Backwards-compatible fields used by some UI components
+        createdAt: v.timestamp ? new Date(v.timestamp).getTime() : (v.createdDate ? new Date(v.createdDate).getTime() : Date.now()),
+        createdBy: v.user?.email || v.author || 'Anonymous',
+        changes: v.changes || v.diff || ''
     }
 }
 
@@ -133,9 +139,11 @@ const api = {
             body: JSON.stringify({ email, password })
         })
         if (data.accessToken) {
-            localStorage.setItem('collab_token', data.accessToken)
+            session.setToken(data.accessToken)
         }
-        return mapServerUser(data.user || data)
+        const mapped = mapServerUser(data.user || data)
+        session.setUser(mapped)
+        return mapped
     },
 
     async resetPassword(email: string): Promise<{ ok: boolean }> {
@@ -147,15 +155,14 @@ const api = {
     },
 
     // Projects & files
-    async createProject(name: string, files: ProjectFile[]): Promise<Project> {
-        const userStr = localStorage.getItem('collab_user')
-        const user = userStr ? JSON.parse(userStr) : null
+    async createProject(name: string, files: ProjectFile[], description: string = ''): Promise<Project> {
+        const user = session.getUser()
         const userId = user?.userId || user?.id
 
         // Backend expects ProjectEntity with title and creator
         const projectData = {
             title: name,
-            description: '',
+            description: description || '',
             creator: userId ? { userId: parseInt(userId) } : null
         }
         const data = await restFetch('/api/projects', {
@@ -167,8 +174,7 @@ const api = {
     },
 
     async getProjects(): Promise<Project[]> {
-        const userStr = localStorage.getItem('collab_user')
-        const user = userStr ? JSON.parse(userStr) : null
+        const user = session.getUser()
         const userId = user?.userId || user?.id
         if (userId) {
             const created = await restFetch(`/api/projects/creator/${userId}`)
@@ -250,7 +256,8 @@ const api = {
                 fileName: f.name,
                 fileType: f.type,
                 filePath: f.dataUrl || '',
-                project: { projectId: parseInt(projectId) }
+                project: { projectId: parseInt(projectId) },
+                projectId: parseInt(projectId)
             }
             console.log('[API] Sending file data:', { ...fileData, filePath: `<data url length: ${fileData.filePath.length}>` })
             try {
@@ -281,16 +288,14 @@ const api = {
     // Files
     async getFiles(): Promise<ProjectFile[]> {
         // Scope files to projects the current user owns or collaborates on
-        const userStr = localStorage.getItem('collab_user')
-        const user = userStr ? JSON.parse(userStr) : null
+        const user = session.getUser()
         const userId = user?.userId || user?.id
         if (userId) {
-            const createdProjects = await restFetch(`/api/projects/creator/${userId}`)
-            const collaboratedProjects = await restFetch(`/api/projects/collaborator/${userId}`)
-            const allProjects = [...(createdProjects || []), ...(collaboratedProjects || [])]
-            const projectIds = allProjects.map((p: any) => String(p.projectId || p.id))
+            // Reuse getProjects which returns projects the user owns or collaborates on
+            const projects = await this.getProjects()
+            const projectIds = (projects || []).map((p: any) => String(p.id || p.projectId || ''))
             // Fetch files per project and flatten
-            const filesArrays = await Promise.all(projectIds.map(pid => restFetch(`/api/files/project/${pid}`)))
+            const filesArrays = await Promise.all(projectIds.map(pid => this.getFilesByProject(pid)))
             return filesArrays.flat().map(mapServerFile)
         }
         return []
@@ -303,8 +308,7 @@ const api = {
 
     // Versions
     async saveVersion(projectId: string, fileId: string, content: string, message: string): Promise<Version> {
-        const userStr = localStorage.getItem('collab_user')
-        const user = userStr ? JSON.parse(userStr) : null
+        const user = session.getUser()
         const userId = user?.userId || user?.id
 
         // Generate version number based on timestamp
@@ -332,8 +336,7 @@ const api = {
 
     async restoreVersion(projectId: string, fileId: string, versionId: string): Promise<{ ok: boolean }> {
         // Get current user for tracking
-        const userStr = localStorage.getItem('collab_user')
-        const user = userStr ? JSON.parse(userStr) : null
+        const user = session.getUser()
         const userId = user?.userId || user?.id
 
         // Fetch the version and update the file with its content
@@ -359,9 +362,19 @@ const api = {
         return (data || []).map(mapServerComment)
     },
 
+    // Users
+    async getUsers(): Promise<User[]> {
+        try {
+            const data = await restFetch('/api/users')
+            return (data || []).map(mapServerUser)
+        } catch (err) {
+            console.warn('[API] getUsers failed', err)
+            return []
+        }
+    },
+
     async postComment(text: string, projectId: string = '', fileId: string = ''): Promise<Comment> {
-        const userStr = localStorage.getItem('collab_user')
-        const user = userStr ? JSON.parse(userStr) : null
+        const user = session.getUser()
         const userId = user?.userId || user?.id
         const email = user?.email || 'unknown@email.com'
 
@@ -384,15 +397,55 @@ const api = {
         return { ok: true }
     },
 
+    // Activity logs
+    async logActivity(actionType: string, actionDetails?: string, projectId?: string | number): Promise<any> {
+        try {
+            const user = session.getUser()
+            const userId = user?.userId || user?.id
+            const payload: any = {
+                actionType,
+                // Backend expects `actionDescription` (not `actionDetails`) and it is non-nullable.
+                actionDescription: actionDetails || '',
+                // keep `actionDetails` for backwards compatibility with any older endpoints
+                actionDetails: actionDetails || '',
+                // `data` is non-nullable in the DB; store a JSON string with extra metadata
+                data: JSON.stringify({ details: actionDetails || '' })
+            }
+            // attach project if provided (backend requires non-null project)
+            if (projectId) {
+                // ensure numeric id when possible
+                const pid = typeof projectId === 'string' && projectId.match(/^\d+$/) ? parseInt(projectId) : projectId
+                payload.project = { projectId: pid }
+            }
+            if (userId) payload.user = { userId: parseInt(userId) }
+            return await restFetch('/api/activity-logs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+        } catch (err) {
+            console.warn('[API] Failed to log activity:', err)
+            return null
+        }
+    },
+    async getActivityLogs(): Promise<any[]> {
+        try {
+            const data = await restFetch('/api/activity-logs')
+            return data || []
+        } catch (err) {
+            console.warn('[API] Failed to fetch activity logs:', err)
+            return []
+        }
+    },
+
     // Profile
     async getProfile(): Promise<Profile> {
-        const userStr = localStorage.getItem('collab_user')
-        const user = userStr ? JSON.parse(userStr) : null
+        const user = session.getUser()
         const userId = user?.userId || user?.id
         if (userId) {
             const data = await restFetch(`/api/users/${userId}`)
             return {
-                name: data.name,
+                name: data?.name || '',
                 bio: '',
                 interests: '',
                 website: ''
@@ -402,12 +455,11 @@ const api = {
     },
 
     async saveProfile(profile: Profile): Promise<Profile> {
-        const userStr = localStorage.getItem('collab_user')
-        const user = userStr ? JSON.parse(userStr) : null
+        const user = session.getUser()
         const userId = user?.userId || user?.id
         if (userId) {
             try {
-                const userData: any = { name: profile.name }
+                const userData: any = { name: profile?.name || '' }
                 if (profile.bio) userData.bio = profile.bio
                 if (profile.interests) userData.interests = profile.interests
                 if (profile.website) userData.website = profile.website
@@ -418,10 +470,10 @@ const api = {
                     body: JSON.stringify(userData)
                 })
                 
-                // Update localStorage with new user data
-                const currentUser = JSON.parse(localStorage.getItem('collab_user') || '{}')
+                // Update session with new user data
+                const currentUser = session.getUser() || {}
                 const mergedUser = { ...currentUser, ...updatedUser }
-                localStorage.setItem('collab_user', JSON.stringify(mergedUser))
+                session.setUser(mergedUser)
             } catch (error: any) {
                 console.error('[saveProfile] Error updating user:', error)
                 if (error.message?.includes('404') || error.message?.includes('Not Found')) {
@@ -434,8 +486,7 @@ const api = {
     },
 
     async updateEmail(email: string): Promise<User> {
-        const userStr = localStorage.getItem('collab_user')
-        const user = userStr ? JSON.parse(userStr) : null
+        const user = session.getUser()
         const userId = user?.userId || user?.id
         if (userId) {
             try {
@@ -445,8 +496,8 @@ const api = {
                     body: JSON.stringify({ email, name: user?.name })
                 })
                 
-                // Update localStorage
-                localStorage.setItem('collab_user', JSON.stringify(updatedUser))
+                // Update session user
+                session.setUser(updatedUser)
                 return mapServerUser(updatedUser)
             } catch (error: any) {
                 console.error('[updateEmail] Error updating user:', error)
@@ -460,8 +511,7 @@ const api = {
     },
 
     async updatePassword(currentPassword: string, newPassword: string): Promise<{ ok: boolean }> {
-        const userStr = localStorage.getItem('collab_user')
-        const user = userStr ? JSON.parse(userStr) : null
+        const user = session.getUser()
         const userId = user?.userId || user?.id
         if (userId) {
             try {

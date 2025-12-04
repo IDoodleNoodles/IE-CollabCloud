@@ -21,26 +21,20 @@ export default function Collaborators({ projectId, projectName, isOpen, onClose 
     }, [projectId, isOpen])
 
     async function loadCollaborators() {
-        const API_BASE = (import.meta as any).env?.VITE_API_BASE
-        const useApi = API_BASE !== undefined
-        if (useApi) {
-            try {
-                const project = await api.getProject(String(projectId))
-                const collabs = (project?.collaborators || []).map((u: any) => ({
-                    id: String(u.id || u.userId),
-                    email: u.email,
-                    name: u.name || u.email.split('@')[0],
-                    permission: 'edit',
-                    addedAt: Date.now()
-                }))
-                setCollaborators(collabs)
-                return
-            } catch (e) {
-                // fall back to local
-            }
+        try {
+            const project = await api.getProject(String(projectId))
+            const collabs = (project?.collaborators || []).map((u: any) => ({
+                id: String(u.id || u.userId),
+                email: u.email,
+                name: u.name || u.email.split('@')[0],
+                permission: 'edit',
+                addedAt: Date.now()
+            }))
+            setCollaborators(collabs)
+        } catch (e) {
+            console.warn('[Collaborators] Failed to load collaborators from API:', e)
+            setCollaborators([])
         }
-        const collabs = JSON.parse(localStorage.getItem(`collab_project_${projectId}_collaborators`) || '[]')
-        setCollaborators(collabs)
     }
 
     function getInitials(email: string): string {
@@ -59,19 +53,12 @@ export default function Collaborators({ projectId, projectName, isOpen, onClose 
             alert('Please enter an email address')
             return
         }
-        const API_BASE = (import.meta as any).env?.VITE_API_BASE
-        const useApi = API_BASE !== undefined
         let userExists: any = null
-        if (useApi) {
-            try {
-                const u = await api.findUserByEmail(newCollabEmail)
-                if (u) {
-                    userExists = { userId: u.id || u.userId, email: u.email, name: u.name }
-                }
-            } catch { }
-        } else {
-            const users = JSON.parse(localStorage.getItem('collab_users') || '[]')
-            userExists = users.find((u: any) => u.email === newCollabEmail)
+        try {
+            const u = await api.findUserByEmail(newCollabEmail)
+            if (u) userExists = { userId: u.id || u.userId, email: u.email, name: u.name }
+        } catch (err) {
+            console.warn('[Collaborators] findUserByEmail failed:', err)
         }
         if (!userExists) {
             alert('User with this email does not exist')
@@ -92,49 +79,35 @@ export default function Collaborators({ projectId, projectName, isOpen, onClose 
             addedAt: Date.now()
         }
 
-        const useApi2 = (import.meta as any).env?.VITE_API_BASE !== undefined
-        if (useApi2) {
-            try {
-                const updatedProject = await api.addCollaborator(String(projectId), String(userExists.userId || userExists.id))
-                const collabs = (updatedProject?.collaborators || []).map((u: any) => ({
-                    id: String(u.id || u.userId),
-                    email: u.email,
-                    name: u.name || u.email.split('@')[0],
-                    permission: 'edit',
-                    addedAt: Date.now()
-                }))
-                setCollaborators(collabs)
-            } catch (e: any) {
-                alert('Error adding collaborator: ' + (e?.message || 'unknown'))
-                return
-            }
-        } else {
-            const updated = [...collaborators, newCollab]
-            setCollaborators(updated)
-            localStorage.setItem(`collab_project_${projectId}_collaborators`, JSON.stringify(updated))
+        try {
+            const updatedProject = await api.addCollaborator(String(projectId), String(userExists.userId || userExists.id))
+            const collabs = (updatedProject?.collaborators || []).map((u: any) => ({
+                id: String(u.id || u.userId),
+                email: u.email,
+                name: u.name || u.email.split('@')[0],
+                permission: 'edit',
+                addedAt: Date.now()
+            }))
+            setCollaborators(collabs)
+        } catch (e: any) {
+            alert('Error adding collaborator: ' + (e?.message || 'unknown'))
+            return
         }
-        ActivityLogger.log(ActivityTypes.MANAGE_COLLABORATORS, `Added collaborator ${newCollabEmail} to project ${projectName}`)
+        ActivityLogger.log(ActivityTypes.MANAGE_COLLABORATORS, `Added collaborator ${newCollabEmail} to project ${projectName}`, projectId)
         setNewCollabEmail('')
         setShowAddForm(false)
     }
 
     async function removeCollaborator(collabId: string, collabEmail: string) {
         if (!confirm(`Remove ${collabEmail} from this project?`)) return
-        const useApi = (import.meta as any).env?.VITE_API_BASE !== undefined
-        if (useApi) {
-            try {
-                await api.removeCollaborator(String(projectId), String(collabId))
-                await loadCollaborators()
-            } catch (e: any) {
-                alert('Error removing collaborator: ' + (e?.message || 'unknown'))
-                return
-            }
-        } else {
-            const updated = collaborators.filter(c => c.id !== collabId)
-            setCollaborators(updated)
-            localStorage.setItem(`collab_project_${projectId}_collaborators`, JSON.stringify(updated))
+        try {
+            await api.removeCollaborator(String(projectId), String(collabId))
+            await loadCollaborators()
+        } catch (e: any) {
+            alert('Error removing collaborator: ' + (e?.message || 'unknown'))
+            return
         }
-        ActivityLogger.log(ActivityTypes.MANAGE_COLLABORATORS, `Removed collaborator ${collabEmail} from project ${projectName}`)
+        ActivityLogger.log(ActivityTypes.MANAGE_COLLABORATORS, `Removed collaborator ${collabEmail} from project ${projectName}`, projectId)
     }
 
     function updatePermission(collabId: string, newPermission: string) {
@@ -142,12 +115,11 @@ export default function Collaborators({ projectId, projectName, isOpen, onClose 
             c.id === collabId ? { ...c, permission: newPermission } : c
         )
         setCollaborators(updated)
-        localStorage.setItem(`collab_project_${projectId}_collaborators`, JSON.stringify(updated))
-        ActivityLogger.log(ActivityTypes.MANAGE_COLLABORATORS, `Updated permissions for collaborator in project ${projectName}`)
+        ActivityLogger.log(ActivityTypes.MANAGE_COLLABORATORS, `Updated permissions for collaborator in project ${projectName}`, projectId)
     }
 
     function handleSaveChanges() {
-        ActivityLogger.log(ActivityTypes.MANAGE_COLLABORATORS, `Saved collaborator changes for project ${projectName}`)
+        ActivityLogger.log(ActivityTypes.MANAGE_COLLABORATORS, `Saved collaborator changes for project ${projectName}`, projectId)
         onClose()
     }
 

@@ -1,6 +1,7 @@
 import React from 'react'
 import api from './api'
 import { ActivityLogger, ActivityTypes } from './activityLogger'
+import session from './session'
 
 type User = { id: string; email: string; name?: string; role?: string }
 
@@ -8,23 +9,20 @@ const AuthContext = React.createContext<any>(null)
 
 function useProvideAuth() {
     const [user, setUser] = React.useState<User | null>(() => {
-        const raw = localStorage.getItem('collab_user')
-        if (!raw) return null
-
-        const userData = JSON.parse(raw)
-        // Migration: ensure both id and userId fields are present and consistent
+        const userData = session.getUser()
+        if (!userData) return null
         if (userData && !userData.userId && userData.id) {
             console.warn('[Auth] Migrating user data: copying id to userId')
             userData.userId = userData.id
-            localStorage.setItem('collab_user', JSON.stringify(userData))
+            session.setUser(userData)
         }
         return userData
     })
 
     function save(u: User | null) {
         setUser(u)
-        if (u) localStorage.setItem('collab_user', JSON.stringify(u))
-        else localStorage.removeItem('collab_user')
+        if (u) session.setUser(u)
+        else session.removeUser()
     }
 
     return {
@@ -41,15 +39,16 @@ function useProvideAuth() {
         login: async (email: string, password: string) => {
             const r = await api.login(email, password)
             if (r) {
-                // if API returned token, api.login already stored it
-                const userData = r.id ? r : r.user || r
+                // api.login returns the mapped user object
+                const userData = r
                 save(userData)
                 ActivityLogger.log(ActivityTypes.LOGIN, `User logged in: ${email}`)
             }
             return r
         },
         logout: () => {
-            localStorage.removeItem('collab_token')
+            session.removeToken()
+            session.removeUser()
             save(null)
         },
         resetPassword: async (email: string) => {

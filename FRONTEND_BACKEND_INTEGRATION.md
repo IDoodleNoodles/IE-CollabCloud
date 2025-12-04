@@ -12,7 +12,7 @@ Create a `.env` file in the root directory (use `.env.example` as template):
 VITE_API_BASE=http://localhost:8080
 ```
 
-**Note:** If `VITE_API_BASE` is not set, the application will fall back to localStorage mode for local development.
+**Note:** This integration requires `VITE_API_BASE` and a running backend. The application no longer falls back to a localStorage-only mode.
 
 ## API Endpoint Mappings
 
@@ -224,12 +224,12 @@ These mappers handle:
 2. Backend validates credentials
 3. Backend returns: `{ userId, email, name, role, accessToken? }`
 4. Frontend stores token (if provided) and maps user object
-5. Frontend stores user in localStorage as `collab_user`
+5. Frontend stores current user in the centralized `session` service (cookies + in-memory). Do not rely on `localStorage`.
 
 ## Creating Projects
 
 When creating a project, the frontend now:
-1. Retrieves current user from localStorage
+1. Retrieves current user from `session.getUser()` or `api.getProfile()`
 2. Extracts `userId` (or `id` as fallback)
 3. Sends to backend:
 ```json
@@ -353,10 +353,10 @@ All frontend API calls have been updated to:
 ✅ Map backend field names to frontend expectations
 ✅ Convert data types appropriately (Long → String, LocalDateTime → timestamp)
 ✅ Handle nested relationships from backend entities
-✅ Maintain backward compatibility with localStorage mode
+✅ Application no longer supports a localStorage-only fallback; prefer backend API and `session` service
 
 The application now seamlessly works with both:
 - **Backend API mode** (when `VITE_API_BASE` is set)
-- **localStorage mode** (when `VITE_API_BASE` is not set)
+- **localStorage mode**: removed — the app relies on the backend API and session management
 
 This provides flexibility for development and testing scenarios.

@@ -12,7 +12,7 @@ export const ProjectCard = React.memo<ProjectCardProps>(({ project }) => {
     const navigate = useNavigate()
 
     const totalFiles = project.files?.length || 0
-    const collaboratorsCount = project.collaborators?.length || 0
+    const collaboratorsCount = (project as any).collaborators?.length || 0
 
     const formatDate = (date: Date | string) => {
         return new Date(date).toLocaleDateString('en-US', {
@@ -42,7 +42,7 @@ export const ProjectCard = React.memo<ProjectCardProps>(({ project }) => {
                     }}>
                         {project.name}
                     </h3>
-                    <Badge variant="primary">{project.visibility}</Badge>
+                        {project.visibility && <Badge variant="primary">{project.visibility}</Badge>}
                 </div>
                 <p style={{ 
                     margin: '0.5rem 0 0 0',
@@ -67,7 +67,7 @@ export const ProjectCard = React.memo<ProjectCardProps>(({ project }) => {
                     <span>📄 {totalFiles} file{totalFiles !== 1 ? 's' : ''}</span>
                     <span>👥 {collaboratorsCount} collaborator{collaboratorsCount !== 1 ? 's' : ''}</span>
                 </div>
-                <span>{formatDate(project.createdAt)}</span>
+                <span>{formatDate(new Date(project.createdAt))}</span>
             </div>
         </Card>
     )

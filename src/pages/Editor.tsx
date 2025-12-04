@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ActivityLogger, ActivityTypes } from '../services/activityLogger'
 import { encodeToBase64, decodeFromBase64 } from '../utils/helpers'
 import api from '../services/api'
+import session from '../services/session'
 
 export default function Editor() {
     const { projectId, fileId } = useParams()
@@ -26,37 +27,22 @@ export default function Editor() {
                 const urlParams = new URLSearchParams(window.location.search)
                 const versionId = urlParams.get('versionId')
 
-                const useApi = (import.meta as any).env?.VITE_API_BASE !== undefined
-                const API_BASE = (import.meta as any).env?.VITE_API_BASE || ''
-
-                let p: any, f: any
-
-                if (useApi) {
-                    // Load from backend API
-                    console.log('[Editor] Loading from API...')
-                    p = await api.getProject(projectId as string)
-                    console.log('[Editor] Project from API:', p)
-                    f = p?.files?.find((x: any) => String(x.id) === String(fileId))
-                    console.log('[Editor] File from API:', f)
-                } else {
-                    // Load from localStorage
-                    const all = JSON.parse(localStorage.getItem('collab_projects') || '[]')
-                    console.log('[Editor] Projects from localStorage:', all)
-                    p = all.find((x: any) => x.id === projectId)
-                    console.log('[Editor] Found project:', p)
-                    f = p?.files.find((x: any) => x.id === fileId)
-                    console.log('[Editor] Found file:', f)
-                }
+                // Always load project & file from backend
+                console.log('[Editor] Loading from API...')
+                const p = await api.getProject(projectId as string)
+                console.log('[Editor] Project from API:', p)
+                const f = p?.files?.find((x: any) => String(x.id) === String(fileId))
+                console.log('[Editor] File from API:', f)
 
                 if (!p) {
-                    console.error('[Editor] Project not found')
+                    console.error('[Editor] Project not found (backend)')
                     alert('Project not found')
                     navigate('/projects')
                     return
                 }
 
                 if (!f) {
-                    console.error('[Editor] File not found in project')
+                    console.error('[Editor] File not found in project (backend)')
                     alert('File not found')
                     navigate(`/projects/${projectId}`)
                     return
@@ -64,24 +50,28 @@ export default function Editor() {
 
                 setMeta({ projectId, fileId, name: f?.name, type: f?.type, projectName: p?.name })
 
-                // If viewing a specific version, load that version's content
+                // If viewing a specific version, load that version's content from API
                 if (versionId && isReadOnly) {
-                    const versions = JSON.parse(localStorage.getItem('collab_versions') || '[]')
-                    const version = versions.find((v: any) => v.id === versionId)
-                    if (version) {
-                        setContent(version.content)
-                        setLineCount(version.content.split('\n').length)
-                        setCharCount(version.content.length)
-                        ActivityLogger.log(ActivityTypes.EDIT_FILE, `Viewing version: ${version.message}`)
-                        setLoading(false)
-                        return
+                    try {
+                        const versions = await api.listVersions()
+                        const version = versions.find((v: any) => String(v.id) === String(versionId))
+                        if (version) {
+                            setContent(version.content)
+                            setLineCount(version.content.split('\n').length)
+                            setCharCount(version.content.length)
+                            ActivityLogger.log(ActivityTypes.EDIT_FILE, `Viewing version: ${version.message}`, projectId)
+                            setLoading(false)
+                            return
+                        }
+                    } catch (err) {
+                        console.warn('[Editor] Failed to load versions from API:', err)
                     }
                 }
 
-                ActivityLogger.log(ActivityTypes.EDIT_FILE, `Opened file for editing: ${f.name}`)
+                ActivityLogger.log(ActivityTypes.EDIT_FILE, `Opened file for editing: ${f.name}`, projectId)
 
                 // Load file content
-                if (useApi && f.dataUrl && !f.dataUrl.startsWith('data:')) {
+                if (f.dataUrl && !f.dataUrl.startsWith('data:')) {
                     // File is stored on backend, fetch it
                     console.log('[Editor] Fetching file content from backend:', f.dataUrl)
 
@@ -180,27 +170,26 @@ export default function Editor() {
         }
 
         try {
-            const API_BASE = (import.meta as any).env?.VITE_API_BASE || ''
-            const useApi = (import.meta as any).env?.VITE_API_BASE !== undefined
-
             // Get current user for tracking
-            const userStr = localStorage.getItem('collab_user')
-            const user = userStr ? JSON.parse(userStr) : null
+            const user = session.getUser()
             const userId = user?.userId || user?.id
 
             // Update file content on backend
-            if (useApi) {
+            const token = session.getToken()
+            try {
                 await fetch(`/api/files/${fileId}/content`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('collab_token')}`
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
                     },
                     body: JSON.stringify({ 
                         content,
                         userId: userId ? String(userId) : undefined
                     })
                 })
+            } catch (err) {
+                console.warn('[Editor] Failed to update file content via API:', err)
             }
 
             // Save version using API
@@ -211,7 +200,7 @@ export default function Editor() {
                 commitMessage
             )
 
-            ActivityLogger.log(ActivityTypes.SAVE_VERSION, `Saved version: ${commitMessage} for file: ${meta?.name}`)
+            ActivityLogger.log(ActivityTypes.SAVE_VERSION, `Saved version: ${commitMessage} for file: ${meta?.name}`, projectId)
             setUnsaved(false)
             setShowCommitDialog(false)
             setCommitMessage('')

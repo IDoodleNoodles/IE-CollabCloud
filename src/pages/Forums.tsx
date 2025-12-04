@@ -1,33 +1,52 @@
 import React from 'react'
 import { ActivityLogger, ActivityTypes } from '../services/activityLogger'
+import session from '../services/session'
 
 export default function Forums() {
-    const [topics, setTopics] = React.useState<any[]>(() => JSON.parse(localStorage.getItem('collab_forums') || '[]'))
+    const [topics, setTopics] = React.useState<any[]>([])
     const [title, setTitle] = React.useState('')
     const [body, setBody] = React.useState('')
     const [showNewTopic, setShowNewTopic] = React.useState(false)
 
-    function post() {
+    async function post() {
         if (!title.trim() || !body.trim()) {
             alert('Please fill in both title and body')
             return
         }
-        const author = localStorage.getItem('collab_user') ? JSON.parse(localStorage.getItem('collab_user')!).email : 'Anonymous'
-        const t = { id: 't_' + Date.now(), title, body, author, ts: Date.now(), replies: [] }
-        const next = [t, ...topics]
-        localStorage.setItem('collab_forums', JSON.stringify(next))
-        setTopics(next)
-        ActivityLogger.log(ActivityTypes.CREATE_TOPIC, `Created forum topic: ${title}`)
-        setTitle('')
-        setBody('')
-        setShowNewTopic(false)
+        const author = session.getUser()?.email || 'Anonymous'
+        const payload = { title, body, author }
+        try {
+            const res = await fetch('/api/forums', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            if (res.ok) {
+                const t = await res.json()
+                setTopics(prev => [t, ...prev])
+                ActivityLogger.log(ActivityTypes.CREATE_TOPIC, `Created forum topic: ${title}`)
+                setTitle('')
+                setBody('')
+                setShowNewTopic(false)
+            } else {
+                alert('Failed to create topic')
+            }
+        } catch (err) {
+            console.error('Forums post error', err)
+            alert('Error creating topic')
+        }
     }
 
-    function remove(id: string, topicTitle: string) { 
+    async function remove(id: string, topicTitle: string) {
         if (!confirm(`Delete topic "${topicTitle}"?`)) return
-        const next = topics.filter(t => t.id !== id)
-        setTopics(next)
-        localStorage.setItem('collab_forums', JSON.stringify(next))
+        try {
+            const res = await fetch(`/api/forums/${encodeURIComponent(id)}`, { method: 'DELETE' })
+            if (res.ok) setTopics(prev => prev.filter(t => t.id !== id))
+            else alert('Failed to delete topic')
+        } catch (err) {
+            console.error('Forums delete error', err)
+            alert('Error deleting topic')
+        }
     }
 
     return (

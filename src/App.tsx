@@ -10,6 +10,7 @@ import Profile from './pages/Profile'
 import ActivityLogs from './pages/ActivityLogs'
 import Search from './pages/Search'
 import { useAuth } from './services/auth'
+import api from './services/api'
 import { ActivityLogger, ActivityTypes } from './services/activityLogger'
 
 export default function App() {
@@ -17,17 +18,28 @@ export default function App() {
     const location = useLocation()
     const navigate = useNavigate()
     const [searchQuery, setSearchQuery] = React.useState('')
-    const [profile, setProfile] = React.useState<any>(() => JSON.parse(localStorage.getItem('collab_profile') || '{}'))
+    const [profile, setProfile] = React.useState<any>(null)
 
     React.useEffect(() => {
         console.log('[App] Current user session:', user)
     }, [user])
 
-    // Update profile when localStorage changes or when navigating to profile page
+    // Fetch profile when navigating to profile page or on mount
     React.useEffect(() => {
-        if (location.pathname === '/profile') {
-            setProfile(JSON.parse(localStorage.getItem('collab_profile') || '{}'))
+        let mounted = true
+        async function loadProfile() {
+            try {
+                const p = await api.getProfile()
+                if (mounted) setProfile(p)
+            } catch (err) {
+                console.warn('[App] Failed to load profile', err)
+                if (mounted) setProfile(null)
+            }
         }
+        if (location.pathname === '/profile' || !profile) {
+            loadProfile()
+        }
+        return () => { mounted = false }
     }, [location.pathname])
 
     // Redirect to auth if not logged in and trying to access protected routes
@@ -131,7 +143,7 @@ export default function App() {
                             color: '#5F6368',
                             fontWeight: '500'
                         }}>
-                            {profile.name || user.name || user.email?.split('@')[0] || 'User'}
+                            {profile?.name || user?.name || user?.email?.split('@')[0] || 'User'}
                         </span>
                         <button style={{
                             padding: '0.625rem 1.25rem',

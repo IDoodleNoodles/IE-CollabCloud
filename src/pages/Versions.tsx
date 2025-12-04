@@ -30,7 +30,7 @@ export default function Versions() {
         try {
             await api.restoreVersion(v.projectId, v.fileId, v.id)
             alert('✅ Version restored successfully!')
-            ActivityLogger.log(ActivityTypes.SAVE_VERSION, `Restored version: ${v.message}`)
+            ActivityLogger.log(ActivityTypes.SAVE_VERSION, `Restored version: ${v.message}`, v.projectId)
             loadData()
         } catch (err: any) {
             alert('Error restoring version: ' + err.message)

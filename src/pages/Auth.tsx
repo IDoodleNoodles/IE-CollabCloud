@@ -44,9 +44,7 @@ function AuthInner() {
                 navigate('/')
             } else {
                 await auth.register(email, password, fullName)
-                // Initialize profile with the full name
-                const profile = { name: fullName }
-                localStorage.setItem('collab_profile', JSON.stringify(profile))
+                // Profile will be managed by backend; no localStorage persistence
                 alert('Registration successful! Please log in with your credentials.')
                 setMode('login')
                 setEmail('')

@@ -7,43 +7,31 @@ import api from '../services/api'
 export default function Dashboard() {
     const { user } = useAuth()
     const [stats, setStats] = React.useState({ projects: 0, files: 0, collaborators: 0 })
-    const profile = JSON.parse(localStorage.getItem('collab_profile') || '{}')
-
-    const fullName = profile.name || user?.name || ''
-    const firstName = fullName ? fullName.split(' ')[0] : user?.email?.split('@')[0] || 'User'
+    const [profile, setProfile] = React.useState<any>(null)
+    const [firstName, setFirstName] = React.useState('User')
 
     React.useEffect(() => {
         async function loadStats() {
             try {
-                const useApi = (import.meta as any).env?.VITE_API_BASE !== undefined
-                if (useApi) {
-                    // In API mode, fetch projects and files from backend
-                    const [projects, files] = await Promise.all([
-                        api.getProjects(),
-                        api.getFiles()
-                    ])
-                    const allCollaborators = new Set<string>()
-                    setStats({
-                        projects: projects.length,
-                        files: files.length,
-                        collaborators: allCollaborators.size
-                    })
-                } else {
-                    // Local mode: read from localStorage
-                    const projects = JSON.parse(localStorage.getItem('collab_projects') || '[]')
-                    const totalFiles = projects.reduce((sum: number, p: any) => sum + (p.files?.length || 0), 0)
-                    const allCollaborators = new Set<string>()
-                    projects.forEach((p: any) => {
-                        const collabKey = `collab_project_${p.id}_collaborators`
-                        const projectCollabs = JSON.parse(localStorage.getItem(collabKey) || '[]')
-                        projectCollabs.forEach((c: any) => allCollaborators.add(c.email))
-                    })
-                    setStats({
-                        projects: projects.length,
-                        files: totalFiles,
-                        collaborators: allCollaborators.size
-                    })
-                }
+                const [projects, files, profileData, activities] = await Promise.all([
+                    api.getProjects(),
+                    api.getFiles(),
+                    api.getProfile().catch(() => ({})),
+                    api.getActivityLogs().catch(() => [])
+                ])
+                const allCollaborators = new Set<string>()
+                // If backend returns collaborators in projects, collect them
+                projects.forEach((p: any) => {
+                    (p.collaborators || []).forEach((c: any) => allCollaborators.add(c.email))
+                })
+                setStats({
+                    projects: projects.length,
+                    files: files.length,
+                    collaborators: allCollaborators.size
+                })
+                setProfile(profileData)
+                const fullName = (profileData as any)?.name || user?.name || ''
+                setFirstName(fullName ? fullName.split(' ')[0] : user?.email?.split('@')[0] || 'User')
                 ActivityLogger.log(ActivityTypes.VIEW_DASHBOARD, 'Viewed dashboard')
             } catch (err) {
                 console.error('Error loading dashboard stats:', err)
@@ -287,10 +275,13 @@ function RecentProjects() {
     const [projects, setProjects] = React.useState<any[]>([])
 
     React.useEffect(() => {
-        const allProjects = JSON.parse(localStorage.getItem('collab_projects') || '[]')
-        // Sort by most recently modified (assuming projects have a timestamp or we can use creation order)
-        const recent = allProjects.slice(0, 4) // Show max 4 recent projects
-        setProjects(recent)
+        let mounted = true
+        api.getProjects().then(allProjects => {
+            if (!mounted) return
+            const recent = (allProjects || []).slice(0, 4)
+            setProjects(recent)
+        }).catch(() => {})
+        return () => { mounted = false }
     }, [])
 
     if (projects.length === 0) return null
@@ -366,9 +357,9 @@ function RecentActivity() {
     const [activities, setActivities] = React.useState<any[]>([])
 
     React.useEffect(() => {
-        const activityLogs = JSON.parse(localStorage.getItem('collab_activity_logs') || '[]')
-        const recent = activityLogs.slice(0, 8) // Show last 8 activities
-        setActivities(recent)
+        let mounted = true
+        api.getActivityLogs().then(logs => { if (mounted) setActivities((logs || []).slice(0, 8)) }).catch(() => {})
+        return () => { mounted = false }
     }, [])
 
     if (activities.length === 0) return null

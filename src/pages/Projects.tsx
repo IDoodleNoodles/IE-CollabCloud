@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid'
 import api from '../services/api'
 import { useAuth } from '../services/auth'
 import { ActivityLogger, ActivityTypes } from '../services/activityLogger'
+import session from '../services/session'
 
 type FileMeta = { id: string; name: string; type: string; dataUrl?: string }
 type Project = { id: string; name: string; description?: string; files: FileMeta[] }
@@ -21,7 +22,7 @@ export default function Projects() {
     const [isDragging, setIsDragging] = React.useState(false)
     const fileInputRef = React.useRef<HTMLInputElement>(null)
     const uploadFormRef = React.useRef<HTMLDivElement>(null)
-    const profile = JSON.parse(localStorage.getItem('collab_profile') || '{}')
+    const profile = session.getUser() || {}
 
     React.useEffect(() => {
         api.getProjects().then((p: any) => {
@@ -119,22 +120,53 @@ export default function Projects() {
                 dataUrl: f.dataUrl || '',
                 uploadedAt: Date.now()
             })) as any
-            const proj: any = await api.createProject(name, projectFiles)
+            const proj: any = await api.createProject(name, projectFiles, description)
             console.log('[Projects] Created project:', proj)
-            if (!proj || !proj.id) {
+            if (!proj) {
                 throw new Error('Invalid project returned from server')
             }
-            // If API mode is enabled, upload files to backend
-            const useApi = (import.meta as any).env?.VITE_API_BASE !== undefined
-            if (useApi && projectFiles.length > 0) {
+
+            // Resolve a robust projectId to use for subsequent file uploads/logging.
+            // Some backends may return unexpected id shapes ('null'/'undefined' strings)
+            // so fall back to fetching the project list and finding the created project.
+            let createdId = proj.id || proj.projectId || ''
+            const invalidId = !createdId || createdId === 'null' || createdId === 'undefined' || isNaN(Number(createdId))
+            if (invalidId) {
+                console.warn('[Projects] createProject returned invalid id, searching for created project')
                 try {
-                    await api.uploadFiles(String(proj.id), projectFiles as any)
-                } catch (uploadErr) {
-                    console.error('[Projects] Error uploading files:', uploadErr)
+                    const all = await api.getProjects()
+                    const found = (all || []).find((p: any) => String(p.name) === String(name))
+                    if (found && (found.id || found.projectId)) {
+                        createdId = found.id || found.projectId
+                        console.log('[Projects] Found created project id via getProjects():', createdId)
+                    } else {
+                        console.warn('[Projects] Could not find created project in project list')
+                    }
+                } catch (e) {
+                    console.warn('[Projects] Error while fetching projects to find created id', e)
                 }
             }
-            setProjects(prev => [proj, ...prev])
-            ActivityLogger.log(ActivityTypes.UPLOAD_PROJECT, `Created project: ${name} with ${fileMetas.length} files`)
+
+            // Upload files to backend using the resolved id (always attempt when files exist).
+            // Previously this was gated by `VITE_API_BASE` which is often undefined in dev
+            // even when the backend is reachable via relative URLs. Always try and let
+            // the API call fail gracefully if the backend is not available.
+            if (projectFiles.length > 0) {
+                if (!createdId) {
+                    console.error('[Projects] No valid project id available for file upload; skipping upload')
+                } else {
+                    try {
+                        await api.uploadFiles(String(createdId), projectFiles as any)
+                    } catch (uploadErr) {
+                        console.error('[Projects] Error uploading files:', uploadErr)
+                    }
+                }
+            }
+
+            // Ensure the project object placed into UI has an id field
+            const projectForState = { ...(proj || {}), id: String(createdId || proj.id || proj.projectId || '') }
+            setProjects(prev => [projectForState, ...prev])
+            ActivityLogger.log(ActivityTypes.UPLOAD_PROJECT, `Created project: ${name} with ${fileMetas.length} files`, projectForState.id)
             alert('Project created successfully!')
             setName('')
             setDescription('')
@@ -152,7 +184,7 @@ export default function Projects() {
         if (!confirm(`Delete project "${projectName}"? This cannot be undone.`)) return
         api.deleteProject(id).then(() => {
             setProjects(prev => prev.filter(p => p.id !== id))
-            ActivityLogger.log(ActivityTypes.CREATE_PROJECT, `Deleted project: ${projectName}`)
+            ActivityLogger.log(ActivityTypes.CREATE_PROJECT, `Deleted project: ${projectName}`, id)
         })
     }
 
@@ -588,7 +620,7 @@ export default function Projects() {
                                                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                                                 <circle cx="12" cy="7" r="4" />
                                             </svg>
-                                            <span>{profile.name || user?.name || 'Sharaine Salutan'}</span>
+                                            <span>{profile?.name || user?.name || 'Sharaine Salutan'}</span>
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
