@@ -35,14 +35,25 @@ public class UserService {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
 
-        user.setName(userDetails.getName());
-        user.setEmail(userDetails.getEmail());
+        // Only update fields that are provided (not null)
+        if (userDetails.getName() != null) {
+            user.setName(userDetails.getName());
+        }
+        if (userDetails.getEmail() != null) {
+            user.setEmail(userDetails.getEmail());
+        }
         if (userDetails.getPassword() != null && !userDetails.getPassword().isEmpty()) {
             user.setPassword(userDetails.getPassword());
         }
-        user.setRole(userDetails.getRole());
-        user.setBio(userDetails.getBio());
-        user.setProfilePicture(userDetails.getProfilePicture());
+        if (userDetails.getRole() != null) {
+            user.setRole(userDetails.getRole());
+        }
+        if (userDetails.getBio() != null) {
+            user.setBio(userDetails.getBio());
+        }
+        if (userDetails.getProfilePicture() != null) {
+            user.setProfilePicture(userDetails.getProfilePicture());
+        }
 
         return userRepository.save(user);
     }

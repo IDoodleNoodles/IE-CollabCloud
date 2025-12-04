@@ -19,6 +19,10 @@ export default function ProjectDetail() {
     const [comments, setComments] = React.useState<Comment[]>([])
     const [showCollaboratorsModal, setShowCollaboratorsModal] = React.useState(false)
     const [showShareModal, setShowShareModal] = React.useState(false)
+    const [fileHistory, setFileHistory] = React.useState<any[]>([])
+    const [selectedFileForHistory, setSelectedFileForHistory] = React.useState<any>(null)
+    const [showHistoryContent, setShowHistoryContent] = React.useState(false)
+    const [selectedHistoryEntry, setSelectedHistoryEntry] = React.useState<any>(null)
     const profile = JSON.parse(localStorage.getItem('collab_profile') || '{}')
 
     React.useEffect(() => {
@@ -27,8 +31,8 @@ export default function ProjectDetail() {
             try {
                 const p: any = await api.getProject(id as string)
                 setProject(p)
-                const API_BASE = (import.meta as any).env?.VITE_API_BASE || ''
-                if (API_BASE) {
+                const useApi = (import.meta as any).env?.VITE_API_BASE !== undefined
+                if (useApi) {
                     const files = await api.getFilesByProject(String(p.id))
                     // Merge files into project if backend doesn't include them
                     setProject((prev: any) => ({ ...prev, files }))
@@ -69,8 +73,8 @@ export default function ProjectDetail() {
 
     async function addComment() {
         if (!commentText.trim()) return
-        const API_BASE = (import.meta as any).env?.VITE_API_BASE || ''
-        if (API_BASE) {
+        const useApi = (import.meta as any).env?.VITE_API_BASE !== undefined
+        if (useApi) {
             try {
                 const c = await api.postComment(commentText, String(project.id))
                 setComments([c as any, ...comments])
@@ -134,10 +138,50 @@ export default function ProjectDetail() {
         loadVersions()
     }, [project])
 
+    async function loadFileHistory(file: any) {
+        setSelectedFileForHistory(file)
+        try {
+            const data = await api.getFileHistory(String(file.id))
+            setFileHistory(data)
+        } catch (error) {
+            console.error('Error loading file history:', error)
+            alert('Failed to load file history')
+        }
+    }
+
+    async function restoreFromHistory(entry: any) {
+        if (!confirm(`Restore file to version from ${new Date(entry.modifiedDate).toLocaleString()}?`)) {
+            return
+        }
+
+        try {
+            const userStr = localStorage.getItem('collab_user')
+            const user = userStr ? JSON.parse(userStr) : null
+            const userId = user?.userId || user?.id
+
+            await fetch(`/api/files/${selectedFileForHistory.id}/content`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    content: entry.content,
+                    userId: userId ? String(userId) : undefined
+                })
+            })
+
+            alert('✅ File restored successfully!')
+            loadFileHistory(selectedFileForHistory)
+        } catch (error) {
+            console.error('Error restoring file:', error)
+            alert('❌ Failed to restore file')
+        }
+    }
+
     function restoreVersion(v: any) {
         if (!confirm(`Restore version: "${v.message}"? This will overwrite the current file.`)) return
-        const API_BASE = (import.meta as any).env?.VITE_API_BASE || ''
-        if (API_BASE) {
+        const useApi = (import.meta as any).env?.VITE_API_BASE !== undefined
+        if (useApi) {
             api.restoreVersion(String(v.projectId), String(v.fileId), String(v.id))
                 .then(() => alert('✅ Version restored successfully!'))
                 .catch((err: any) => alert('Error restoring version: ' + err.message))
@@ -159,8 +203,8 @@ export default function ProjectDetail() {
     // Load collaborators: API mode uses project.collaborators; fallback uses localStorage
     const collaborators = React.useMemo((): Array<{ id: string; email: string; name?: string; permission: string; addedAt: number; color: string }> => {
         if (!project) return []
-        const API_BASE = (import.meta as any).env?.VITE_API_BASE || ''
-        if (API_BASE && Array.isArray(project.collaborators)) {
+        const useApi = (import.meta as any).env?.VITE_API_BASE !== undefined
+        if (useApi && Array.isArray(project.collaborators)) {
             return project.collaborators.map((u: any) => {
                 const email = u.email || 'unknown@email.com'
                 const name = u.name || email.split('@')[0]
@@ -426,6 +470,32 @@ export default function ProjectDetail() {
                                                 </svg>
                                             </button>
                                             <button
+                                                onClick={() => {
+                                                    if (!f.id) {
+                                                        alert('File ID is missing.')
+                                                        return
+                                                    }
+                                                    loadFileHistory(f)
+                                                }}
+                                                style={{
+                                                    background: '#F0F4F9',
+                                                    border: 'none',
+                                                    cursor: 'pointer',
+                                                    padding: '0.5rem',
+                                                    color: '#5F6368',
+                                                    borderRadius: '6px',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center'
+                                                }}
+                                                title="View History"
+                                            >
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <circle cx="12" cy="12" r="10" />
+                                                    <polyline points="12 6 12 12 16 14" />
+                                                </svg>
+                                            </button>
+                                            <button
                                                 onClick={() => handleDownloadFile(f)}
                                                 style={{
                                                     background: '#F0F4F9',
@@ -453,7 +523,7 @@ export default function ProjectDetail() {
                         )}
                     </div>
 
-                    {/* Version History Section */}
+                    {/* File History Section */}
                     <div style={{
                         background: 'white',
                         borderRadius: '12px',
@@ -474,15 +544,17 @@ export default function ProjectDetail() {
                                 <circle cx="12" cy="12" r="10" />
                                 <polyline points="12 6 12 12 16 14" />
                             </svg>
-                            Version History
+                            {selectedFileForHistory ? `History: ${selectedFileForHistory.name}` : 'File History'}
                         </h2>
 
-                        {versions.length === 0 ? (
-                            <p style={{ color: '#9CA3AF' }}>No version history yet</p>
+                        {!selectedFileForHistory ? (
+                            <p style={{ color: '#9CA3AF' }}>Click the 🕐 icon on a file to view its complete change history</p>
+                        ) : fileHistory.length === 0 ? (
+                            <p style={{ color: '#9CA3AF' }}>No history entries found for this file</p>
                         ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                {versions.slice(0, 3).map((v: any, idx: number) => (
-                                    <div key={v.id} style={{
+                                {fileHistory.map((entry: any) => (
+                                    <div key={entry.historyId} style={{
                                         padding: '1.25rem',
                                         background: '#F9FAFB',
                                         borderRadius: '8px',
@@ -492,19 +564,22 @@ export default function ProjectDetail() {
                                             <span style={{
                                                 display: 'inline-block',
                                                 padding: '0.25rem 0.625rem',
-                                                background: '#E8F0FE',
-                                                color: '#4285F4',
+                                                background: entry.changeType === 'CREATE' ? '#E8F5E9' : entry.changeType === 'UPDATE' ? '#E8F0FE' : entry.changeType === 'RESTORE' ? '#F3E5F5' : '#FFEBEE',
+                                                color: entry.changeType === 'CREATE' ? '#4CAF50' : entry.changeType === 'UPDATE' ? '#4285F4' : entry.changeType === 'RESTORE' ? '#9C27B0' : '#F44336',
                                                 borderRadius: '12px',
                                                 fontSize: '0.75rem',
                                                 fontWeight: '600'
-                                            }}>{v.versionNumber || `v${idx + 1}`}</span>
+                                            }}>{entry.changeType === 'CREATE' ? '✨ CREATE' : entry.changeType === 'UPDATE' ? '📝 UPDATE' : entry.changeType === 'RESTORE' ? '⏮️ RESTORE' : '🗑️ DELETE'}</span>
                                             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                                                 <span style={{
                                                     fontSize: '0.8125rem',
                                                     color: '#9CA3AF'
-                                                }}>{new Date(v.ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                                }}>{new Date(entry.modifiedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                                                 <button
-                                                    onClick={() => navigate(`/editor/${project.id}/${v.fileId}?readonly=true&versionId=${v.id}`)}
+                                                    onClick={() => {
+                                                        setSelectedHistoryEntry(entry)
+                                                        setShowHistoryContent(true)
+                                                    }}
                                                     style={{
                                                         background: 'transparent',
                                                         border: 'none',
@@ -514,7 +589,7 @@ export default function ProjectDetail() {
                                                         display: 'flex',
                                                         alignItems: 'center'
                                                     }}
-                                                    title="View version"
+                                                    title="View content"
                                                 >
                                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
@@ -522,7 +597,7 @@ export default function ProjectDetail() {
                                                     </svg>
                                                 </button>
                                                 <span
-                                                    onClick={() => restoreVersion(v)}
+                                                    onClick={() => restoreFromHistory(entry)}
                                                     style={{
                                                         fontSize: '0.875rem',
                                                         color: '#34A853',
@@ -545,12 +620,12 @@ export default function ProjectDetail() {
                                             fontSize: '0.9375rem',
                                             color: '#202124',
                                             margin: '0 0 0.25rem 0'
-                                        }}>{v.message || (idx === 0 ? 'Added mobile responsive breakpoints' : idx === 1 ? 'Updated header size and color palette' : 'Initial upload')}</p>
+                                        }}>{entry.changeDescription}</p>
                                         <p style={{
                                             fontSize: '0.8125rem',
                                             color: '#9CA3AF',
                                             margin: 0
-                                        }}>by {v.author || (idx === 0 ? 'John Smith' : 'Sharaine Salutan')}</p>
+                                        }}>by {entry.userName || 'Unknown'}</p>
                                     </div>
                                 ))}
                             </div>
@@ -817,7 +892,16 @@ export default function ProjectDetail() {
                 projectId={project.id}
                 projectName={project.name}
                 isOpen={showCollaboratorsModal}
-                onClose={() => setShowCollaboratorsModal(false)}
+                onClose={async () => {
+                    setShowCollaboratorsModal(false)
+                    // Reload project to get updated collaborators
+                    try {
+                        const p: any = await api.getProject(id as string)
+                        setProject(p)
+                    } catch (e) {
+                        console.error('Error reloading project:', e)
+                    }
+                }}
             />
 
             {/* Share Project Modal */}
@@ -938,6 +1022,158 @@ export default function ProjectDetail() {
                         >
                             Copy Link
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {/* File History Content Preview Modal */}
+            {showHistoryContent && selectedHistoryEntry && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0, 0, 0, 0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000,
+                    padding: '2rem'
+                }}>
+                    <div style={{
+                        background: 'white',
+                        borderRadius: '12px',
+                        width: '100%',
+                        maxWidth: '800px',
+                        maxHeight: '90vh',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+                    }}>
+                        {/* Header */}
+                        <div style={{
+                            padding: '1.5rem',
+                            borderBottom: '1px solid #E5E7EB',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                        }}>
+                            <h2 style={{
+                                fontSize: '18px',
+                                fontWeight: '600',
+                                color: '#202124',
+                                margin: 0
+                            }}>
+                                File Content Preview
+                            </h2>
+                            <button
+                                onClick={() => {
+                                    setShowHistoryContent(false)
+                                    setSelectedHistoryEntry(null)
+                                }}
+                                style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    padding: '0.25rem',
+                                    color: '#9AA0A6',
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                }}
+                            >
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="18" y1="6" x2="6" y2="18" />
+                                    <line x1="6" y1="6" x2="18" y2="18" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div style={{
+                            padding: '1.5rem',
+                            overflowY: 'auto',
+                            flex: 1
+                        }}>
+                            <div style={{ marginBottom: '1rem' }}>
+                                <span style={{
+                                    display: 'inline-block',
+                                    padding: '0.25rem 0.625rem',
+                                    background: selectedHistoryEntry.changeType === 'CREATE' ? '#E8F5E9' : selectedHistoryEntry.changeType === 'UPDATE' ? '#E8F0FE' : selectedHistoryEntry.changeType === 'RESTORE' ? '#F3E5F5' : '#FFEBEE',
+                                    color: selectedHistoryEntry.changeType === 'CREATE' ? '#4CAF50' : selectedHistoryEntry.changeType === 'UPDATE' ? '#4285F4' : selectedHistoryEntry.changeType === 'RESTORE' ? '#9C27B0' : '#F44336',
+                                    borderRadius: '12px',
+                                    fontSize: '0.75rem',
+                                    fontWeight: '600',
+                                    marginRight: '0.5rem'
+                                }}>{selectedHistoryEntry.changeType}</span>
+                                <span style={{ fontSize: '0.875rem', color: '#9CA3AF' }}>
+                                    {new Date(selectedHistoryEntry.modifiedDate).toLocaleString('en-US', { 
+                                        month: 'short', 
+                                        day: 'numeric', 
+                                        year: 'numeric', 
+                                        hour: '2-digit', 
+                                        minute: '2-digit' 
+                                    })}
+                                </span>
+                            </div>
+                            <pre style={{
+                                background: '#F9FAFB',
+                                padding: '1rem',
+                                borderRadius: '8px',
+                                fontSize: '0.875rem',
+                                overflow: 'auto',
+                                maxHeight: '500px',
+                                fontFamily: 'Consolas, Monaco, "Courier New", monospace',
+                                color: '#202124'
+                            }}>{selectedHistoryEntry.content}</pre>
+                        </div>
+
+                        {/* Footer */}
+                        <div style={{
+                            padding: '1.5rem',
+                            borderTop: '1px solid #E5E7EB',
+                            display: 'flex',
+                            justifyContent: 'flex-end',
+                            gap: '0.75rem'
+                        }}>
+                            <button
+                                onClick={() => {
+                                    setShowHistoryContent(false)
+                                    setSelectedHistoryEntry(null)
+                                }}
+                                style={{
+                                    padding: '0.625rem 1.25rem',
+                                    background: 'transparent',
+                                    border: '1px solid #DADCE0',
+                                    borderRadius: '8px',
+                                    color: '#5F6368',
+                                    fontSize: '0.875rem',
+                                    fontWeight: '500',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Close
+                            </button>
+                            <button
+                                onClick={() => {
+                                    restoreFromHistory(selectedHistoryEntry)
+                                    setShowHistoryContent(false)
+                                    setSelectedHistoryEntry(null)
+                                }}
+                                style={{
+                                    padding: '0.625rem 1.25rem',
+                                    background: '#34A853',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    color: 'white',
+                                    fontSize: '0.875rem',
+                                    fontWeight: '500',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Restore This Version
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

@@ -21,8 +21,9 @@ export default function Collaborators({ projectId, projectName, isOpen, onClose 
     }, [projectId, isOpen])
 
     async function loadCollaborators() {
-        const API_BASE = (import.meta as any).env?.VITE_API_BASE || ''
-        if (API_BASE) {
+        const API_BASE = (import.meta as any).env?.VITE_API_BASE
+        const useApi = API_BASE !== undefined
+        if (useApi) {
             try {
                 const project = await api.getProject(String(projectId))
                 const collabs = (project?.collaborators || []).map((u: any) => ({
@@ -58,9 +59,10 @@ export default function Collaborators({ projectId, projectName, isOpen, onClose 
             alert('Please enter an email address')
             return
         }
-        const API_BASE = (import.meta as any).env?.VITE_API_BASE || ''
+        const API_BASE = (import.meta as any).env?.VITE_API_BASE
+        const useApi = API_BASE !== undefined
         let userExists: any = null
-        if (API_BASE) {
+        if (useApi) {
             try {
                 const u = await api.findUserByEmail(newCollabEmail)
                 if (u) {
@@ -90,8 +92,8 @@ export default function Collaborators({ projectId, projectName, isOpen, onClose 
             addedAt: Date.now()
         }
 
-        const API_BASE2 = (import.meta as any).env?.VITE_API_BASE || ''
-        if (API_BASE2) {
+        const useApi2 = (import.meta as any).env?.VITE_API_BASE !== undefined
+        if (useApi2) {
             try {
                 const updatedProject = await api.addCollaborator(String(projectId), String(userExists.userId || userExists.id))
                 const collabs = (updatedProject?.collaborators || []).map((u: any) => ({
@@ -118,8 +120,8 @@ export default function Collaborators({ projectId, projectName, isOpen, onClose 
 
     async function removeCollaborator(collabId: string, collabEmail: string) {
         if (!confirm(`Remove ${collabEmail} from this project?`)) return
-        const API_BASE = (import.meta as any).env?.VITE_API_BASE || ''
-        if (API_BASE) {
+        const useApi = (import.meta as any).env?.VITE_API_BASE !== undefined
+        if (useApi) {
             try {
                 await api.removeCollaborator(String(projectId), String(collabId))
                 await loadCollaborators()

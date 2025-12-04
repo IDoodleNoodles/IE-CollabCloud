@@ -9,10 +9,13 @@ import type {
 } from '../types'
 
 // API adapter: All operations now use the REST API backed by SQL database
-const API_BASE: string = (import.meta as any).env?.VITE_API_BASE || ''
+// Use empty string for relative URLs (proxied by Vite in dev)
+const API_BASE: string = (import.meta as any).env?.VITE_API_BASE !== undefined 
+    ? (import.meta as any).env.VITE_API_BASE 
+    : ''
 
-if (!API_BASE) {
-    console.error('[API] VITE_API_BASE not configured! All API calls will fail.')
+if ((import.meta as any).env?.VITE_API_BASE === undefined) {
+    console.warn('[API] VITE_API_BASE not set. Using relative URLs (Vite proxy in dev).')
 }
 
 async function restFetch(path: string, opts: RequestInit = {}): Promise<any> {
@@ -328,15 +331,23 @@ const api = {
     },
 
     async restoreVersion(projectId: string, fileId: string, versionId: string): Promise<{ ok: boolean }> {
+        // Get current user for tracking
+        const userStr = localStorage.getItem('collab_user')
+        const user = userStr ? JSON.parse(userStr) : null
+        const userId = user?.userId || user?.id
+
         // Fetch the version and update the file with its content
         const version = await restFetch(`/api/versions/${versionId}`)
         if (version) {
             const mappedVersion = mapServerVersion(version)
-            // Update the file with the version content
-            await restFetch(`/api/files/${fileId}`, {
+            // Update the file with the version content using the content endpoint
+            await restFetch(`/api/files/${fileId}/content`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ filePath: mappedVersion.content })
+                body: JSON.stringify({ 
+                    content: mappedVersion.content,
+                    userId: userId ? String(userId) : undefined
+                })
             })
         }
         return { ok: true }
@@ -395,13 +406,84 @@ const api = {
         const user = userStr ? JSON.parse(userStr) : null
         const userId = user?.userId || user?.id
         if (userId) {
-            await restFetch(`/api/users/${userId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: profile.name })
-            })
+            try {
+                const userData: any = { name: profile.name }
+                if (profile.bio) userData.bio = profile.bio
+                if (profile.interests) userData.interests = profile.interests
+                if (profile.website) userData.website = profile.website
+                
+                const updatedUser = await restFetch(`/api/users/${userId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(userData)
+                })
+                
+                // Update localStorage with new user data
+                const currentUser = JSON.parse(localStorage.getItem('collab_user') || '{}')
+                const mergedUser = { ...currentUser, ...updatedUser }
+                localStorage.setItem('collab_user', JSON.stringify(mergedUser))
+            } catch (error: any) {
+                console.error('[saveProfile] Error updating user:', error)
+                if (error.message?.includes('404') || error.message?.includes('Not Found')) {
+                    throw new Error('User not found in database. Please log out and register again.')
+                }
+                throw error
+            }
         }
         return profile
+    },
+
+    async updateEmail(email: string): Promise<User> {
+        const userStr = localStorage.getItem('collab_user')
+        const user = userStr ? JSON.parse(userStr) : null
+        const userId = user?.userId || user?.id
+        if (userId) {
+            try {
+                const updatedUser = await restFetch(`/api/users/${userId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, name: user?.name })
+                })
+                
+                // Update localStorage
+                localStorage.setItem('collab_user', JSON.stringify(updatedUser))
+                return mapServerUser(updatedUser)
+            } catch (error: any) {
+                console.error('[updateEmail] Error updating user:', error)
+                if (error.message?.includes('404') || error.message?.includes('Not Found')) {
+                    throw new Error('User not found in database. Please log out and register again.')
+                }
+                throw error
+            }
+        }
+        throw new Error('User not found in session. Please log in again.')
+    },
+
+    async updatePassword(currentPassword: string, newPassword: string): Promise<{ ok: boolean }> {
+        const userStr = localStorage.getItem('collab_user')
+        const user = userStr ? JSON.parse(userStr) : null
+        const userId = user?.userId || user?.id
+        if (userId) {
+            try {
+                await restFetch(`/api/users/${userId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        name: user?.name,
+                        email: user?.email,
+                        password: newPassword
+                    })
+                })
+                return { ok: true }
+            } catch (error: any) {
+                console.error('[updatePassword] Error updating user:', error)
+                if (error.message?.includes('404') || error.message?.includes('Not Found')) {
+                    throw new Error('User not found in database. Please log out and register again.')
+                }
+                throw error
+            }
+        }
+        throw new Error('User not found in session. Please log in again.')
     },
 
     // Collaborators
@@ -432,7 +514,19 @@ const api = {
         const created = await restFetch(`/api/projects/creator/${userId}`)
         const collaborated = await restFetch(`/api/projects/collaborator/${userId}`)
         return [...(created || []), ...(collaborated || [])].map(mapServerProject)
+    },
+
+    // File History
+    async getFileHistory(fileId: string): Promise<any[]> {
+        const data = await restFetch(`/api/file-history/file/${fileId}`)
+        return data || []
+    },
+
+    async getProjectHistory(projectId: string): Promise<any[]> {
+        const data = await restFetch(`/api/file-history/project/${projectId}`)
+        return data || []
     }
 }
 
 export default api
+

@@ -42,9 +42,15 @@ public class CommentController {
     }
 
     @PostMapping
-    public ResponseEntity<CommentEntity> createComment(@RequestBody CommentEntity comment) {
-        CommentEntity createdComment = commentService.createComment(comment);
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdComment);
+    public ResponseEntity<?> createComment(@RequestBody CommentEntity comment) {
+        try {
+            CommentEntity createdComment = commentService.createComment(comment);
+            return ResponseEntity.status(HttpStatus.CREATED).body(createdComment);
+        } catch (RuntimeException e) {
+            java.util.Map<String, String> error = new java.util.HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+        }
     }
 
     @PutMapping("/{id}")

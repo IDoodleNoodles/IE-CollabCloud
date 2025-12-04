@@ -93,26 +93,34 @@ public class ProjectController {
     }
 
     @PostMapping("/{projectId}/collaborators/{userId}")
-    public ResponseEntity<ProjectEntity> addCollaborator(
+    public ResponseEntity<?> addCollaborator(
             @PathVariable("projectId") Long projectId,
             @PathVariable("userId") Long userId) {
         try {
+            logger.debug("Adding collaborator userId={} to projectId={}", userId, projectId);
             ProjectEntity updatedProject = projectService.addCollaborator(projectId, userId);
             return ResponseEntity.ok(updatedProject);
         } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
+            logger.error("Error adding collaborator: ", e);
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
         }
     }
 
     @DeleteMapping("/{projectId}/collaborators/{userId}")
-    public ResponseEntity<ProjectEntity> removeCollaborator(
+    public ResponseEntity<?> removeCollaborator(
             @PathVariable("projectId") Long projectId,
             @PathVariable("userId") Long userId) {
         try {
+            logger.debug("Removing collaborator userId={} from projectId={}", userId, projectId);
             ProjectEntity updatedProject = projectService.removeCollaborator(projectId, userId);
             return ResponseEntity.ok(updatedProject);
         } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
+            logger.error("Error removing collaborator: ", e);
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
         }
     }
 }
