@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -20,6 +21,9 @@ public class AuthController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody Map<String, String> request) {
@@ -42,7 +46,7 @@ public class AuthController {
 
             UserEntity user = new UserEntity();
             user.setEmail(email);
-            user.setPassword(password); // Note: In production, hash this password!
+            user.setPassword(passwordEncoder.encode(password)); // Hash the password with BCrypt
             user.setName(name != null ? name : email.split("@")[0]);
             user.setRole("USER");
 
@@ -79,7 +83,7 @@ public class AuthController {
             UserEntity user = userService.getUserByEmail(email)
                     .orElse(null);
 
-            if (user == null || !user.getPassword().equals(password)) {
+            if (user == null || !passwordEncoder.matches(password, user.getPassword())) {
                 Map<String, String> error = new HashMap<>();
                 error.put("error", "Invalid credentials");
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);

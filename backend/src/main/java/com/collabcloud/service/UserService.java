@@ -3,6 +3,7 @@ package com.collabcloud.service;
 import com.collabcloud.entity.UserEntity;
 import com.collabcloud.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -14,6 +15,9 @@ public class UserService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     public List<UserEntity> getAllUsers() {
         return userRepository.findAll();
@@ -43,7 +47,7 @@ public class UserService {
             user.setEmail(userDetails.getEmail());
         }
         if (userDetails.getPassword() != null && !userDetails.getPassword().isEmpty()) {
-            user.setPassword(userDetails.getPassword());
+            user.setPassword(passwordEncoder.encode(userDetails.getPassword())); // Hash the password with BCrypt
         }
         if (userDetails.getRole() != null) {
             user.setRole(userDetails.getRole());

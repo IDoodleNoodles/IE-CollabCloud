@@ -30,7 +30,28 @@ async function restFetch(path: string, opts: RequestInit = {}): Promise<any> {
     const url = (API_BASE || '') + path
     console.log('[restFetch] Request:', opts.method || 'GET', url)
     if (opts.body && typeof opts.body === 'string') {
-        const bodyPreview = opts.body.length > 500 ? opts.body.substring(0, 500) + '...' : opts.body
+        let bodyPreview = opts.body.length > 500 ? opts.body.substring(0, 500) + '...' : opts.body
+        
+        // Redact sensitive fields from logs
+        try {
+            const parsedBody = JSON.parse(opts.body)
+            if (parsedBody.password) {
+                parsedBody.password = '***REDACTED***'
+            }
+            if (parsedBody.currentPassword) {
+                parsedBody.currentPassword = '***REDACTED***'
+            }
+            if (parsedBody.newPassword) {
+                parsedBody.newPassword = '***REDACTED***'
+            }
+            bodyPreview = JSON.stringify(parsedBody)
+            if (bodyPreview.length > 500) {
+                bodyPreview = bodyPreview.substring(0, 500) + '...'
+            }
+        } catch {
+            // If not JSON, leave as-is
+        }
+        
         console.log('[restFetch] Body preview:', bodyPreview)
     }
 

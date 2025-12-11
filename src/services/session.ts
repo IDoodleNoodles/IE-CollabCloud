@@ -1,46 +1,73 @@
-// Session service: centralize token/user handling without using localStorage
+// Session service: centralize token/user handling using sessionStorage with tamper detection
+// sessionStorage clears when browser is closed, localStorage persists
 type User = any
 
 let memoryToken: string | null = null
 let memoryUser: User | null = null
 
-function readCookie(name: string): string | null {
-    if (typeof document === 'undefined') return null
-    const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'))
-    return match ? decodeURIComponent(match[2]) : null
+// Simple hash function to detect tampering
+function hashData(data: string): string {
+    let hash = 0
+    for (let i = 0; i < data.length; i++) {
+        const char = data.charCodeAt(i)
+        hash = ((hash << 5) - hash) + char
+        hash = hash & hash // Convert to 32bit integer
+    }
+    return Math.abs(hash).toString(16)
 }
 
-function setCookie(name: string, value: string, days = 7) {
-    if (typeof document === 'undefined') return
-    const expires = new Date(Date.now() + days * 864e5).toUTCString()
-    document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/`
-}
-
-function deleteCookie(name: string) {
-    if (typeof document === 'undefined') return
-    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`
+// Verify data integrity
+function verifyData(data: string, hash: string): boolean {
+    return hashData(data) === hash
 }
 
 export default {
     getToken(): string | null {
         if (memoryToken) return memoryToken
-        const c = readCookie('collab_token')
-        if (c) memoryToken = c
+        const stored = sessionStorage.getItem('collab_token')
+        const hash = sessionStorage.getItem('collab_token_hash')
+        
+        // Verify token hasn't been tampered with
+        if (stored && hash && !verifyData(stored, hash)) {
+            console.warn('[Session] Token tampering detected! Clearing session.')
+            sessionStorage.removeItem('collab_token')
+            sessionStorage.removeItem('collab_token_hash')
+            return null
+        }
+        
+        if (stored) memoryToken = stored
         return memoryToken
     },
     setToken(t: string | null) {
         memoryToken = t
-        if (t) setCookie('collab_token', t)
-        else deleteCookie('collab_token')
+        if (t) {
+            sessionStorage.setItem('collab_token', t)
+            sessionStorage.setItem('collab_token_hash', hashData(t))
+        } else {
+            sessionStorage.removeItem('collab_token')
+            sessionStorage.removeItem('collab_token_hash')
+        }
     },
     removeToken() {
         memoryToken = null
-        deleteCookie('collab_token')
+        sessionStorage.removeItem('collab_token')
+        sessionStorage.removeItem('collab_token_hash')
     },
     getUser(): User | null {
         if (memoryUser) return memoryUser
-        const raw = readCookie('collab_user')
+        const raw = sessionStorage.getItem('collab_user')
+        const hash = sessionStorage.getItem('collab_user_hash')
+        
         if (!raw) return null
+        
+        // Verify user data hasn't been tampered with
+        if (hash && !verifyData(raw, hash)) {
+            console.warn('[Session] User data tampering detected! Clearing session.')
+            sessionStorage.removeItem('collab_user')
+            sessionStorage.removeItem('collab_user_hash')
+            return null
+        }
+        
         try {
             memoryUser = JSON.parse(raw)
             return memoryUser
@@ -50,11 +77,18 @@ export default {
     },
     setUser(u: User | null) {
         memoryUser = u
-        if (u) setCookie('collab_user', JSON.stringify(u))
-        else deleteCookie('collab_user')
+        if (u) {
+            const serialized = JSON.stringify(u)
+            sessionStorage.setItem('collab_user', serialized)
+            sessionStorage.setItem('collab_user_hash', hashData(serialized))
+        } else {
+            sessionStorage.removeItem('collab_user')
+            sessionStorage.removeItem('collab_user_hash')
+        }
     },
     removeUser() {
         memoryUser = null
-        deleteCookie('collab_user')
+        sessionStorage.removeItem('collab_user')
+        sessionStorage.removeItem('collab_user_hash')
     }
 }

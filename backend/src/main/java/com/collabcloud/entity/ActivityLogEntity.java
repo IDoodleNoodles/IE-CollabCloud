@@ -1,5 +1,6 @@
 package com.collabcloud.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import javax.persistence.*;
 import java.time.LocalDateTime;
 
@@ -27,8 +28,13 @@ public class ActivityLogEntity {
     private LocalDateTime actionTimestamp;
 
     @ManyToOne
-    @JoinColumn(name = "project_id", nullable = false)
+    @JoinColumn(name = "project_id", nullable = true)
     private ProjectEntity project;
+
+    @ManyToOne
+    @JoinColumn(name = "user_id", nullable = true)
+    @JsonIgnoreProperties({"createdProjects", "collaboratingProjects", "comments", "password", "bio", "profilePicture", "lastLogin"})
+    private UserEntity user;
 
     // Constructors
     public ActivityLogEntity() {
@@ -98,5 +104,13 @@ public class ActivityLogEntity {
 
     public void setProject(ProjectEntity project) {
         this.project = project;
+    }
+
+    public UserEntity getUser() {
+        return user;
+    }
+
+    public void setUser(UserEntity user) {
+        this.user = user;
     }
 }

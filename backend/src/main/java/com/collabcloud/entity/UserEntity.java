@@ -1,6 +1,7 @@
 package com.collabcloud.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import javax.persistence.*;
 import java.time.LocalDate;
 import java.util.HashSet;
@@ -21,6 +22,7 @@ public class UserEntity {
     private String email;
 
     @Column(nullable = false)
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)  // Hide password from responses
     private String password;
 
     @Column(nullable = false)
