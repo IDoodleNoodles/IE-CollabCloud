@@ -1,94 +1,56 @@
 # CollabCloud
 
-CollabCloud is an online platform inspired by GitHub but created to be more inclusive and user-friendly for everyone, particularly students, beginners, and hobbyists. While GitHub primarily targets software development and version control, CollabCloud supports all kinds of projects—whether they're code, documents, designs, or even notes—allowing users to easily share, collaborate on, and store their work in one place. The goal is to simplify project sharing and foster a collaborative environment that's open to all. This repository contains a React + Vite TypeScript frontend integrated with a Spring Boot backend; the frontend calls the REST API for persistent operations.
+Online platform for project collaboration, supporting code, documents, designs, and notes. Inspired by GitHub but inclusive for students, beginners, and hobbyists. React + Vite TypeScript frontend with Spring Boot backend.
 
+## Tech Stack
 
+- Frontend: React + TypeScript + Vite
+- Backend: Spring Boot 2.7.12 (Java 21)
+- Database: MySQL 8.0
+- Build Tools: Maven (backend), npm (frontend)
 
-## Tech StackQuick start (PowerShell):
+## Prerequisites
 
+- Node.js (v16+)
+- Java JDK 21
+- Maven 3.8+
+- MySQL 8.0+
 
+## Database Setup
 
-- **Frontend**: React + TypeScript + Vite```powershell
+1. Create database in MySQL:
+   ```sql
+   CREATE DATABASE dbcollabcloud;
+   ```
 
-- **Backend**: Spring Boot 2.7.12 (Java 21)npm install
-
-- **Database**: MySQL 8.0npm run dev
-
-- **Build Tools**: Maven (backend), npm (frontend)```
-
-
-
-## PrerequisitesOpen http://localhost:5173 in your browser.
-
-
-
-- **Node.js** (v16 or higher) and npmWhat this implements (demo):
-
-- **Java JDK** 21- User register/login (stored in localStorage)
-
-- **Maven** 3.8+- Project creation by uploading files
-
-- **MySQL** 8.0+ (running locally on port 3306)- Project listing and file download
-
-- Simple text editor with commit messages and version history
-
-## Database Setup- Commenting list (localStorage, simulated notifications)
-
-- Profile and simple forums pages
-
-1. **Create the database** in MySQL:
-
-```sqlNotes:
-
-CREATE DATABASE dbcollabcloud;- This is a frontend-only demo. Replace localStorage code with API calls when adding a backend.
-
-```CollabCloud is an online platform inspired by GitHub but created to be more inclusive and user-friendly for everyone, particularly students, beginners, and hobbyists. While GitHub primarily targets software development and version control, CollabCloud supports all kinds of projects—whether they’re code, documents, designs, or even notes—allowing users to easily share, collaborate on, and store their work in one place. The goal is to simplify project sharing and foster a collaborative environment that’s open to all.
-
-2. **Update database credentials** (if needed) in `backend/src/main/resources/application.properties`:
-```properties
-spring.datasource.username=root
-spring.datasource.password=123456
-```
+2. Update credentials in `backend/src/main/resources/application.properties`:
+   ```properties
+   spring.datasource.username=root
+   spring.datasource.password=123456
+   ```
 
 ## Running the Application
 
-### 1. Start the Backend (Spring Boot)
+### Backend (Spring Boot)
 
-From the project root:
-
+From project root:
 ```powershell
-# Build and run Spring Boot
 mvn -f backend spring-boot:run
 ```
+Starts on http://localhost:8080. Hibernate auto-creates tables.
 
-The backend will start on **http://localhost:8080**
+### Frontend (Vite)
 
-- Hibernate will auto-create tables on first run (`spring.jpa.hibernate.ddl-auto=update`)
-- Check backend logs to confirm successful MySQL connection
-
-### 2. Start the Frontend (Vite)
-
-In a **separate terminal**, from the project root:
-
+In separate terminal:
 ```powershell
-# Install dependencies (first time only)
 npm install
-
-# Start dev server
 npm run dev
 ```
+Starts on http://localhost:5173. Proxy forwards API requests to backend.
 
-The frontend will start on **http://localhost:5173**
+## Access
 
-- Vite dev proxy forwards API requests to the backend automatically
-- The app uses the real MySQL database via Spring Boot REST API
-
-### 3. Access the Application
-
-Open **http://localhost:5173** in your browser and:
-- Register a new user account
-- Create projects by uploading files
-- Explore version control, comments, and forums
+Open http://localhost:5173. Register/login, create projects by uploading files, manage versions, comments, forums.
 
 ## Project Structure
 
@@ -113,44 +75,42 @@ IE-CollabCloud/
 
 ## Features
 
-- **User Authentication**: Register/login with email and password
-- **Project Management**: Create projects by uploading files
-- **File Operations**: Upload, download, and delete files
-- **Version Control**: Save file versions with commit messages, restore previous versions
-- **Comments**: Add comments to projects
-- **Activity Logs**: Track project activities
-- **Forums**: Create and participate in discussion topics
-- **User Profiles**: Manage user information
+- User authentication (register/login)
+- Project creation via file upload
+- File operations (upload, download, delete)
+- Version control with commit messages
+- Comments on projects
+- Activity logs
+- Forums for discussions
+- User profiles
 
 ## Development Notes
 
-### CORS Configuration
-- The backend allows `http://localhost:5173` for development
-- For production, update `CorsConfig.java` to use your domain
+### CORS
+Backend allows http://localhost:5173 for development. Update CorsConfig.java for production.
 
-### Database Connection
-- Uses `allowPublicKeyRetrieval=true` for MySQL caching_sha2_password authentication
-- For production, configure SSL or use mysql_native_password
+### Database
+Uses allowPublicKeyRetrieval=true for MySQL. Configure SSL for production.
 
 ### Security TODOs
-- ⚠️ Passwords currently stored in plain text - implement BCrypt hashing
-- ⚠️ Mock JWT tokens - implement real JWT authentication
-- ⚠️ Add input validation and sanitization
-- ⚠️ Add rate limiting and CSRF protection
+- Hash passwords with BCrypt
+- Implement JWT authentication
+- Add input validation
+- Add rate limiting and CSRF protection
 
 ## Troubleshooting
 
 **Backend won't start:**
-- Verify MySQL is running: `mysql -u root -p`
+- Verify MySQL running: `mysql -u root -p`
 - Check database exists: `SHOW DATABASES;`
-- Confirm credentials in `application.properties`
+- Confirm credentials in application.properties
 
 **Frontend can't reach backend:**
-- Ensure backend is running on port 8080
-- Check browser console for CORS errors
-- Verify `.env.local` has `VITE_API_BASE=http://localhost:8080`
+- Ensure backend on port 8080
+- Check console for CORS errors
+- Verify .env.local has VITE_API_BASE=http://localhost:8080
 
 **Database connection error:**
-- Check MySQL is running on localhost:3306
-- Verify user credentials are correct
-- Ensure database `dbcollabcloud` exists
+- MySQL on localhost:3306
+- Verify credentials
+- Ensure dbcollabcloud exists
