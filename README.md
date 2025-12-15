@@ -50,7 +50,7 @@ Starts on http://localhost:5173. Proxy forwards API requests to backend.
 
 ## Access
 
-Open http://localhost:5173. Register/login, create projects by uploading files, manage versions, comments, forums.
+Open http://localhost:5173. Register/login, create projects by uploading files, manage versions, comments, search.
 
 ## Project Structure
 
@@ -76,13 +76,14 @@ IE-CollabCloud/
 ## Features
 
 - User authentication (register/login)
-- Project creation via file upload
-- File operations (upload, download, delete)
+- Project management (create, list, with collaborators)
+- File operations (upload, download, delete, edit)
 - Version control with commit messages
-- Comments on projects
+- Comments on projects/files
 - Activity logs
-- Forums for discussions
+- Search for files and projects
 - User profiles
+- Dashboard
 
 ## Development Notes
 
@@ -93,7 +94,6 @@ Backend allows http://localhost:5173 for development. Update CorsConfig.java for
 Uses allowPublicKeyRetrieval=true for MySQL. Configure SSL for production.
 
 ### Security TODOs
-- Hash passwords with BCrypt
 - Implement JWT authentication
 - Add input validation
 - Add rate limiting and CSRF protection
