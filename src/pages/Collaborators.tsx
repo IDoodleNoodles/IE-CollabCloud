@@ -2,6 +2,8 @@ import React from 'react'
 import { ActivityLogger, ActivityTypes } from '../services/activityLogger'
 import api from '../services/api'
 
+import session from '../services/session'
+
 type CollaboratorsModalProps = {
     projectId: string
     projectName: string
@@ -13,6 +15,12 @@ export default function Collaborators({ projectId, projectName, isOpen, onClose 
     const [collaborators, setCollaborators] = React.useState<any[]>([])
     const [showAddForm, setShowAddForm] = React.useState(false)
     const [newCollabEmail, setNewCollabEmail] = React.useState('')
+    const [ownerId, setOwnerId] = React.useState<string | null>(null)
+
+    // Get current user id
+    const currentUser = session.getUser()
+    const currentUserId = currentUser?.userId || currentUser?.id
+
 
     React.useEffect(() => {
         if (isOpen) {
@@ -27,13 +35,15 @@ export default function Collaborators({ projectId, projectName, isOpen, onClose 
                 id: String(u.id || u.userId),
                 email: u.email,
                 name: u.name || u.email.split('@')[0],
-                permission: 'edit',
-                addedAt: Date.now()
+                permission: u.permission || 'edit',
+                addedAt: u.addedAt ? Number(u.addedAt) : Date.now()
             }))
             setCollaborators(collabs)
+            setOwnerId(project?.ownerId ? String(project.ownerId) : null)
         } catch (e) {
             console.warn('[Collaborators] Failed to load collaborators from API:', e)
             setCollaborators([])
+            setOwnerId(null)
         }
     }
 
@@ -49,6 +59,11 @@ export default function Collaborators({ projectId, projectName, isOpen, onClose 
     }
 
     async function addCollaborator() {
+        // Only owner can add
+        if (!ownerId || currentUserId !== ownerId) {
+            alert('Only the project owner can add collaborators.')
+            return
+        }
         if (!newCollabEmail.trim()) {
             alert('Please enter an email address')
             return
@@ -110,11 +125,17 @@ export default function Collaborators({ projectId, projectName, isOpen, onClose 
         ActivityLogger.log(ActivityTypes.MANAGE_COLLABORATORS, `Removed collaborator ${collabEmail} from project ${projectName}`, projectId)
     }
 
-    function updatePermission(collabId: string, newPermission: string) {
+    async function updatePermission(collabId: string, newPermission: string) {
         const updated = collaborators.map(c =>
             c.id === collabId ? { ...c, permission: newPermission } : c
         )
         setCollaborators(updated)
+        try {
+            // Call backend to update permission if API supports it
+            await api.updateCollaboratorPermission?.(String(projectId), String(collabId), newPermission)
+        } catch (e) {
+            alert('Failed to update permission on server')
+        }
         ActivityLogger.log(ActivityTypes.MANAGE_COLLABORATORS, `Updated permissions for collaborator in project ${projectName}`, projectId)
     }
 
@@ -252,34 +273,48 @@ export default function Collaborators({ projectId, projectName, isOpen, onClose 
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                         <select
                                             value={collab.permission}
-                                            onChange={(e) => updatePermission(collab.id, e.target.value)}
+                                            onChange={(e) => {
+                                                if (ownerId && currentUserId === ownerId) {
+                                                    updatePermission(collab.id, e.target.value)
+                                                } else {
+                                                    alert('Only the project owner can change permissions.')
+                                                }
+                                            }}
                                             style={{
                                                 padding: '0.5rem 2rem 0.5rem 0.75rem',
                                                 fontSize: '14px',
                                                 border: '1px solid #DADCE0',
                                                 borderRadius: '6px',
                                                 outline: 'none',
-                                                cursor: 'pointer',
-                                                background: 'white',
+                                                cursor: ownerId && currentUserId === ownerId ? 'pointer' : 'not-allowed',
+                                                background: ownerId && currentUserId === ownerId ? 'white' : '#F3F4F6',
                                                 color: '#202124',
                                                 fontFamily: 'inherit'
                                             }}
+                                            disabled={!ownerId || currentUserId !== ownerId}
                                         >
                                             <option value="view">View</option>
                                             <option value="edit">Edit</option>
                                             <option value="comment">Comment</option>
                                         </select>
                                         <button
-                                            onClick={() => removeCollaborator(collab.id, collab.email)}
+                                            onClick={() => {
+                                                if (ownerId && currentUserId === ownerId) {
+                                                    removeCollaborator(collab.id, collab.email)
+                                                } else {
+                                                    alert('Only the project owner can remove collaborators.')
+                                                }
+                                            }}
                                             style={{
                                                 background: 'transparent',
                                                 border: 'none',
-                                                cursor: 'pointer',
+                                                cursor: ownerId && currentUserId === ownerId ? 'pointer' : 'not-allowed',
                                                 padding: '0.25rem',
-                                                color: '#EA4335',
+                                                color: ownerId && currentUserId === ownerId ? '#EA4335' : '#BDBDBD',
                                                 display: 'flex',
                                                 alignItems: 'center'
                                             }}
+                                            disabled={!ownerId || currentUserId !== ownerId}
                                         >
                                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                 <polyline points="3 6 5 6 21 6" />
@@ -292,102 +327,106 @@ export default function Collaborators({ projectId, projectName, isOpen, onClose 
                         </div>
                     </div>
 
-                    {/* Add Collaborator Button */}
-                    <button
-                        onClick={() => setShowAddForm(!showAddForm)}
-                        style={{
-                            width: '100%',
-                            padding: '1rem',
-                            border: '2px dashed #DADCE0',
-                            borderRadius: '8px',
-                            background: 'transparent',
-                            color: '#5F6368',
-                            fontSize: '14px',
-                            fontWeight: '500',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '0.5rem',
-                            marginBottom: '1.5rem'
-                        }}
-                    >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="12" y1="5" x2="12" y2="19" />
-                            <line x1="5" y1="12" x2="19" y2="12" />
-                        </svg>
-                        Add Collaborator
-                    </button>
-
-                    {/* Add Collaborator Form */}
-                    {showAddForm && (
-                        <div style={{
-                            padding: '1rem',
-                            background: '#F9FAFB',
-                            borderRadius: '8px',
-                            marginBottom: '1.5rem'
-                        }}>
-                            <input
-                                type="email"
-                                placeholder="Enter email address"
-                                value={newCollabEmail}
-                                onChange={(e) => setNewCollabEmail(e.target.value)}
-                                onKeyPress={(e) => {
-                                    if (e.key === 'Enter') {
-                                        addCollaborator()
-                                    }
-                                }}
+                    {/* Add Collaborator Button and Form - Only for Owner */}
+                    {ownerId && currentUserId === ownerId ? (
+                        <>
+                            <button
+                                onClick={() => setShowAddForm(!showAddForm)}
                                 style={{
                                     width: '100%',
-                                    padding: '0.75rem',
+                                    padding: '1rem',
+                                    border: '2px dashed #DADCE0',
+                                    borderRadius: '8px',
+                                    background: 'transparent',
+                                    color: '#5F6368',
                                     fontSize: '14px',
-                                    border: '1px solid #DADCE0',
-                                    borderRadius: '6px',
-                                    outline: 'none',
-                                    marginBottom: '0.75rem',
-                                    boxSizing: 'border-box',
-                                    fontFamily: 'inherit'
+                                    fontWeight: '500',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '0.5rem',
+                                    marginBottom: '1.5rem'
                                 }}
-                            />
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                <button
-                                    onClick={addCollaborator}
-                                    style={{
-                                        flex: 1,
-                                        padding: '0.625rem',
-                                        background: '#4285F4',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: '6px',
-                                        fontSize: '14px',
-                                        fontWeight: '500',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    Add
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setShowAddForm(false)
-                                        setNewCollabEmail('')
-                                    }}
-                                    style={{
-                                        flex: 1,
-                                        padding: '0.625rem',
-                                        background: 'white',
-                                        color: '#5F6368',
-                                        border: '1px solid #DADCE0',
-                                        borderRadius: '6px',
-                                        fontSize: '14px',
-                                        fontWeight: '500',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-                        </div>
-                    )}
+                            >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="12" y1="5" x2="12" y2="19" />
+                                    <line x1="5" y1="12" x2="19" y2="12" />
+                                </svg>
+                                Add Collaborator
+                            </button>
+
+                            {/* Add Collaborator Form */}
+                            {showAddForm && (
+                                <div style={{
+                                    padding: '1rem',
+                                    background: '#F9FAFB',
+                                    borderRadius: '8px',
+                                    marginBottom: '1.5rem'
+                                }}>
+                                    <input
+                                        type="email"
+                                        placeholder="Enter email address"
+                                        value={newCollabEmail}
+                                        onChange={(e) => setNewCollabEmail(e.target.value)}
+                                        onKeyPress={(e) => {
+                                            if (e.key === 'Enter') {
+                                                addCollaborator()
+                                            }
+                                        }}
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.75rem',
+                                            fontSize: '14px',
+                                            border: '1px solid #DADCE0',
+                                            borderRadius: '6px',
+                                            outline: 'none',
+                                            marginBottom: '0.75rem',
+                                            boxSizing: 'border-box',
+                                            fontFamily: 'inherit'
+                                        }}
+                                    />
+                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <button
+                                            onClick={addCollaborator}
+                                            style={{
+                                                flex: 1,
+                                                padding: '0.625rem',
+                                                background: '#4285F4',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '6px',
+                                                fontSize: '14px',
+                                                fontWeight: '500',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Add
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setShowAddForm(false)
+                                                setNewCollabEmail('')
+                                            }}
+                                            style={{
+                                                flex: 1,
+                                                padding: '0.625rem',
+                                                background: 'white',
+                                                color: '#5F6368',
+                                                border: '1px solid #DADCE0',
+                                                borderRadius: '6px',
+                                                fontSize: '14px',
+                                                fontWeight: '500',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    ) : null}
 
                     {/* Share via Email Section */}
                     <div style={{

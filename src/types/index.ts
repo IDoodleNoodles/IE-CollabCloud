@@ -25,6 +25,7 @@ export interface Profile {
 // ==================== Projects & Files ====================
 
 export interface Project {
+    projectId: string
     id: string
     name: string
     description?: string

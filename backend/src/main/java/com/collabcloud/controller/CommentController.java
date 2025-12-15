@@ -41,6 +41,12 @@ public class CommentController {
         return ResponseEntity.ok(comments);
     }
 
+    @GetMapping("/project/{projectId}")
+    public ResponseEntity<List<CommentEntity>> getCommentsByProjectId(@PathVariable("projectId") Long projectId) {
+        List<CommentEntity> comments = commentService.getCommentsByProjectId(projectId);
+        return ResponseEntity.ok(comments);
+    }
+
     @PostMapping
     public ResponseEntity<?> createComment(@RequestBody CommentEntity comment) {
         try {

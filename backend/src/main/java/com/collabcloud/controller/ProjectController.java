@@ -95,10 +95,11 @@ public class ProjectController {
     @PostMapping("/{projectId}/collaborators/{userId}")
     public ResponseEntity<?> addCollaborator(
             @PathVariable("projectId") Long projectId,
-            @PathVariable("userId") Long userId) {
+            @PathVariable("userId") Long userId,
+            @RequestHeader(value = "X-User-Id") Long ownerId) {
         try {
-            logger.debug("Adding collaborator userId={} to projectId={}", userId, projectId);
-            ProjectEntity updatedProject = projectService.addCollaborator(projectId, userId);
+            logger.debug("Adding collaborator userId={} to projectId={} by ownerId={}", userId, projectId, ownerId);
+            ProjectEntity updatedProject = projectService.addCollaborator(projectId, userId, ownerId);
             return ResponseEntity.ok(updatedProject);
         } catch (RuntimeException e) {
             logger.error("Error adding collaborator: ", e);
@@ -111,13 +112,33 @@ public class ProjectController {
     @DeleteMapping("/{projectId}/collaborators/{userId}")
     public ResponseEntity<?> removeCollaborator(
             @PathVariable("projectId") Long projectId,
-            @PathVariable("userId") Long userId) {
+            @PathVariable("userId") Long userId,
+            @RequestHeader(value = "X-User-Id") Long ownerId) {
         try {
-            logger.debug("Removing collaborator userId={} from projectId={}", userId, projectId);
-            ProjectEntity updatedProject = projectService.removeCollaborator(projectId, userId);
+            logger.debug("Removing collaborator userId={} from projectId={} by ownerId={}", userId, projectId, ownerId);
+            ProjectEntity updatedProject = projectService.removeCollaborator(projectId, userId, ownerId);
             return ResponseEntity.ok(updatedProject);
         } catch (RuntimeException e) {
             logger.error("Error removing collaborator: ", e);
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+        }
+    }
+
+    @PutMapping("/{projectId}/collaborators/{userId}/permission")
+    public ResponseEntity<?> updateCollaboratorPermission(
+            @PathVariable("projectId") Long projectId,
+            @PathVariable("userId") Long userId,
+            @RequestBody PermissionRequest permissionRequest,
+            @RequestHeader(value = "X-User-Id") Long ownerId) {
+        try {
+            logger.debug("Updating permission for userId={} in projectId={} by ownerId={}", userId, projectId, ownerId);
+            ProjectEntity updatedProject = projectService.updateCollaboratorPermission(projectId, userId,
+                    permissionRequest.getPermission(), ownerId);
+            return ResponseEntity.ok(updatedProject);
+        } catch (RuntimeException e) {
+            logger.error("Error updating collaborator permission: ", e);
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);

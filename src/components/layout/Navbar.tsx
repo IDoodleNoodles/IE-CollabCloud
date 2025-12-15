@@ -4,7 +4,7 @@ import { useAuth } from '../../services/auth'
 import api from '../../services/api'
 
 export const Navbar = React.memo(() => {
-    const { user, logout } = useAuth()
+    const { user, logout, profile } = useAuth()
     const navigate = useNavigate()
     const [searchQuery, setSearchQuery] = useState('')
 
@@ -22,13 +22,6 @@ export const Navbar = React.memo(() => {
             navigate('/auth')
         }
     }
-
-    const [profile, setProfile] = useState<any>(null)
-    React.useEffect(() => {
-        let mounted = true
-        api.getProfile().then(p => { if (mounted) setProfile(p) }).catch(() => {})
-        return () => { mounted = false }
-    }, [])
 
     const getDisplayName = () => {
         const fullName = profile?.name || user?.name || ''
@@ -50,9 +43,9 @@ export const Navbar = React.memo(() => {
             right: 0,
             zIndex: 100
         }}>
-            <form 
+            <form
                 onSubmit={handleSearch}
-                style={{ 
+                style={{
                     flex: 1,
                     maxWidth: '500px',
                     margin: '0 auto'
@@ -80,10 +73,10 @@ export const Navbar = React.memo(() => {
                 <span style={{ color: '#64748b', fontSize: '0.95rem' }}>
                     {getDisplayName()}
                 </span>
-                <button 
+                <button
                     className="secondary"
                     onClick={handleLogout}
-                    style={{ 
+                    style={{
                         padding: '0.625rem 1.25rem',
                         fontSize: '0.9rem'
                     }}

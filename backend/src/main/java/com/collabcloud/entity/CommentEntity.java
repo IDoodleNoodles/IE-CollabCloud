@@ -24,7 +24,8 @@ public class CommentEntity {
 
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
-    @JsonIgnoreProperties({ "createdProjects", "collaboratingProjects", "comments", "password", "bio", "profilePicture", "lastLogin" })
+    @JsonIgnoreProperties({ "createdProjects", "projectCollaborations", "comments", "password", "bio", "profilePicture",
+            "lastLogin" })
     private UserEntity user;
 
     @ManyToOne(optional = true)
@@ -32,15 +33,20 @@ public class CommentEntity {
     @JsonIgnoreProperties({ "project", "versions", "comments" })
     private FileEntity file;
 
-    // Constructors
+    @ManyToOne(optional = true)
+    @JoinColumn(name = "project_id", nullable = true)
+    @JsonIgnoreProperties({ "files", "collaborators", "versions" })
+    private ProjectEntity project;
+
     public CommentEntity() {
     }
 
-    public CommentEntity(String content, String email, UserEntity user, FileEntity file) {
+    public CommentEntity(String content, String email, UserEntity user, FileEntity file, ProjectEntity project) {
         this.content = content;
         this.email = email;
         this.user = user;
         this.file = file;
+        this.project = project;
         this.createdDate = LocalDateTime.now();
         this.updatedDate = LocalDateTime.now();
     }
@@ -100,5 +106,13 @@ public class CommentEntity {
 
     public void setFile(FileEntity file) {
         this.file = file;
+    }
+
+    public ProjectEntity getProject() {
+        return project;
+    }
+
+    public void setProject(ProjectEntity project) {
+        this.project = project;
     }
 }

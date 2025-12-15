@@ -5,18 +5,16 @@ import { ActivityLogger, ActivityTypes } from '../services/activityLogger'
 import api from '../services/api'
 
 export default function Dashboard() {
-    const { user } = useAuth()
+    const { user, profile } = useAuth()
     const [stats, setStats] = React.useState({ projects: 0, files: 0, collaborators: 0 })
-    const [profile, setProfile] = React.useState<any>(null)
     const [firstName, setFirstName] = React.useState('User')
 
     React.useEffect(() => {
         async function loadStats() {
             try {
-                const [projects, files, profileData, activities] = await Promise.all([
+                const [projects, files, activities] = await Promise.all([
                     api.getProjects(),
                     api.getFiles(),
-                    api.getProfile().catch(() => ({})),
                     api.getActivityLogs().catch(() => [])
                 ])
                 const allCollaborators = new Set<string>()
@@ -29,8 +27,7 @@ export default function Dashboard() {
                     files: files.length,
                     collaborators: allCollaborators.size
                 })
-                setProfile(profileData)
-                const fullName = (profileData as any)?.name || user?.name || ''
+                const fullName = profile?.name || user?.name || ''
                 setFirstName(fullName ? fullName.split(' ')[0] : user?.email?.split('@')[0] || 'User')
                 ActivityLogger.log(ActivityTypes.VIEW_DASHBOARD, 'Viewed dashboard')
             } catch (err) {
@@ -39,7 +36,7 @@ export default function Dashboard() {
             }
         }
         loadStats()
-    }, [])
+    }, [profile, user])
 
     return (
         <div style={{
@@ -280,7 +277,7 @@ function RecentProjects() {
             if (!mounted) return
             const recent = (allProjects || []).slice(0, 4)
             setProjects(recent)
-        }).catch(() => {})
+        }).catch(() => { })
         return () => { mounted = false }
     }, [])
 
@@ -358,7 +355,7 @@ function RecentActivity() {
 
     React.useEffect(() => {
         let mounted = true
-        api.getActivityLogs().then(logs => { if (mounted) setActivities((logs || []).slice(0, 8)) }).catch(() => {})
+        api.getActivityLogs().then(logs => { if (mounted) setActivities((logs || []).slice(0, 8)) }).catch(() => { })
         return () => { mounted = false }
     }, [])
 

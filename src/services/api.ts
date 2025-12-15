@@ -12,13 +12,9 @@ import session from './session'
 
 // API adapter: All operations now use the REST API backed by SQL database
 // Use empty string for relative URLs (proxied by Vite in dev)
-const API_BASE: string = (import.meta as any).env?.VITE_API_BASE !== undefined 
-    ? (import.meta as any).env.VITE_API_BASE 
+const API_BASE: string = (import.meta as any).env?.VITE_API_BASE !== undefined
+    ? (import.meta as any).env.VITE_API_BASE
     : ''
-
-if ((import.meta as any).env?.VITE_API_BASE === undefined) {
-    console.warn('[API] VITE_API_BASE not set. Using relative URLs (Vite proxy in dev).')
-}
 
 async function restFetch(path: string, opts: RequestInit = {}): Promise<any> {
     const headers: Record<string, string> = opts.headers ? { ...(opts.headers as Record<string, string>) } : {}
@@ -31,7 +27,7 @@ async function restFetch(path: string, opts: RequestInit = {}): Promise<any> {
     console.log('[restFetch] Request:', opts.method || 'GET', url)
     if (opts.body && typeof opts.body === 'string') {
         let bodyPreview = opts.body.length > 500 ? opts.body.substring(0, 500) + '...' : opts.body
-        
+
         // Redact sensitive fields from logs
         try {
             const parsedBody = JSON.parse(opts.body)
@@ -51,7 +47,7 @@ async function restFetch(path: string, opts: RequestInit = {}): Promise<any> {
         } catch {
             // If not JSON, leave as-is
         }
-        
+
         console.log('[restFetch] Body preview:', bodyPreview)
     }
 
@@ -80,25 +76,38 @@ function mapServerComment(c: any) {
     return {
         id: (c?.commentId != null ? String(c.commentId) : c?.id) || 'c_' + Date.now(),
         text: c?.content ?? c?.text ?? '',
-        author: c?.email ?? c?.user?.email ?? 'Anonymous',
+        author: c?.user?.name ?? c?.email ?? 'Anonymous',
         ts: c?.createdDate ? new Date(c.createdDate).getTime() : (c?.ts ?? Date.now()),
-        projectId: c?.file?.project?.projectId ? String(c.file.project.projectId) : c?.projectId || '',
+        projectId: c?.project?.projectId ? String(c.project.projectId) : c?.projectId || '',
         fileId: c?.file?.fileId ? String(c.file.fileId) : c?.fileId || ''
     }
 }
 
 function mapServerProject(p: any) {
+    // Defensive: log and sanitize collaborators
+    let collaboratorsRaw = p.collaborators;
+    console.log('[mapServerProject] collaborators raw:', collaboratorsRaw);
+    let collaboratorsArr: any[] = Array.isArray(collaboratorsRaw) ? collaboratorsRaw : [];
+    const projectId = String(p.projectId || p.id);
     return {
-        id: String(p.projectId || p.id),
+        projectId,
+        id: projectId,
         name: p.title || p.name || '',
         description: p.description || '',
         files: (p.files || []).map(mapServerFile),
-        collaborators: (p.collaborators || []).map((u: any) => ({
-            id: String(u.userId || u.id),
-            email: u.email || 'unknown@email.com',
-            name: u.name || (u.email ? u.email.split('@')[0] : 'User')
-        })),
+        collaborators: collaboratorsArr.map((c: any) => {
+            const user = c.user || c;
+            return {
+                id: String(user.userId || user.id),
+                email: user.email || 'unknown@email.com',
+                name: user.name || (user.email ? user.email.split('@')[0] : 'User'),
+                permission: c.permission || 'edit',
+                addedAt: c.addedAt ? Number(new Date(c.addedAt).getTime()) : Date.now()
+            }
+        }),
         ownerId: p.creator?.userId ? String(p.creator.userId) : p.ownerId,
+        ownerName: p.creator?.name || '',
+        ownerEmail: p.creator?.email || '',
         createdAt: p.createdDate ? new Date(p.createdDate).getTime() : Date.now(),
         updatedAt: p.lastModified ? new Date(p.lastModified).getTime() : undefined
     }
@@ -143,6 +152,18 @@ function mapServerUser(u: any) {
 }
 
 const api = {
+    // Update collaborator permission
+    async updateCollaboratorPermission(projectId: string, userId: string, permission: string): Promise<Project | undefined> {
+        const currentUser = session.getUser()
+        const ownerId = currentUser?.userId || currentUser?.id
+        if (!ownerId) throw new Error('No user in session')
+        const data = await restFetch(`/api/projects/${projectId}/collaborators/${userId}/permission`, {
+            method: 'PUT',
+            headers: { 'X-User-Id': String(ownerId), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ permission })
+        })
+        return mapServerProject(data)
+    },
     // Auth
     async register(email: string, password: string, name?: string): Promise<User> {
         const data = await restFetch('/auth/register', {
@@ -368,7 +389,7 @@ const api = {
             await restFetch(`/api/files/${fileId}/content`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     content: mappedVersion.content,
                     userId: userId ? String(userId) : undefined
                 })
@@ -380,6 +401,11 @@ const api = {
     // Comments
     async getComments(): Promise<Comment[]> {
         const data = await restFetch('/api/comments')
+        return (data || []).map(mapServerComment)
+    },
+
+    async getCommentsByProject(projectId: string): Promise<Comment[]> {
+        const data = await restFetch(`/api/comments/project/${projectId}`)
         return (data || []).map(mapServerComment)
     },
 
@@ -402,6 +428,7 @@ const api = {
         const commentData = {
             content: text,
             file: fileId ? { fileId: parseInt(fileId) } : null,
+            project: projectId ? { projectId: parseInt(projectId) } : null,
             user: userId ? { userId: parseInt(userId) } : null,
             email
         }
@@ -484,13 +511,13 @@ const api = {
                 if (profile.bio) userData.bio = profile.bio
                 if (profile.interests) userData.interests = profile.interests
                 if (profile.website) userData.website = profile.website
-                
+
                 const updatedUser = await restFetch(`/api/users/${userId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(userData)
                 })
-                
+
                 // Update session with new user data
                 const currentUser = session.getUser() || {}
                 const mergedUser = { ...currentUser, ...updatedUser }
@@ -516,7 +543,7 @@ const api = {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, name: user?.name })
                 })
-                
+
                 // Update session user
                 session.setUser(updatedUser)
                 return mapServerUser(updatedUser)
@@ -539,7 +566,7 @@ const api = {
                 await restFetch(`/api/users/${userId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
+                    body: JSON.stringify({
                         name: user?.name,
                         email: user?.email,
                         password: newPassword
@@ -559,8 +586,12 @@ const api = {
 
     // Collaborators
     async addCollaborator(projectId: string, userId: string): Promise<Project | undefined> {
+        const currentUser = session.getUser()
+        const ownerId = currentUser?.userId || currentUser?.id
+        if (!ownerId) throw new Error('No user in session')
         const data = await restFetch(`/api/projects/${projectId}/collaborators/${userId}`, {
-            method: 'POST'
+            method: 'POST',
+            headers: { 'X-User-Id': String(ownerId) }
         })
         return mapServerProject(data)
     },
@@ -575,8 +606,12 @@ const api = {
     },
 
     async removeCollaborator(projectId: string, userId: string): Promise<Project | undefined> {
+        const currentUser = session.getUser()
+        const ownerId = currentUser?.userId || currentUser?.id
+        if (!ownerId) throw new Error('No user in session')
         const data = await restFetch(`/api/projects/${projectId}/collaborators/${userId}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers: { 'X-User-Id': String(ownerId) }
         })
         return mapServerProject(data)
     },

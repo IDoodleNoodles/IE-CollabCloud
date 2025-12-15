@@ -18,6 +18,26 @@ function useProvideAuth() {
         }
         return userData
     })
+    const [profile, setProfile] = React.useState<any>(null)
+
+    // Fetch profile on mount or when user changes
+    React.useEffect(() => {
+        let mounted = true
+        async function fetchProfile() {
+            if (user) {
+                try {
+                    const p = await api.getProfile()
+                    if (mounted) setProfile(p)
+                } catch {
+                    if (mounted) setProfile(null)
+                }
+            } else {
+                setProfile(null)
+            }
+        }
+        fetchProfile()
+        return () => { mounted = false }
+    }, [user])
 
     function save(u: User | null) {
         setUser(u)
@@ -28,6 +48,8 @@ function useProvideAuth() {
     return {
         user,
         setUser: save,
+        profile,
+        setProfile,
         register: async (email: string, password: string, name?: string) => {
             const r = await api.register(email, password, name)
             if (r) {
@@ -50,6 +72,7 @@ function useProvideAuth() {
             session.removeToken()
             session.removeUser()
             save(null)
+            // Do not reload here; let the caller handle navigation
         },
         resetPassword: async (email: string) => {
             await api.resetPassword(email)

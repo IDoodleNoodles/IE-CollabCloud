@@ -22,7 +22,7 @@ public class UserEntity {
     private String email;
 
     @Column(nullable = false)
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)  // Hide password from responses
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY) // Hide password from responses
     private String password;
 
     @Column(nullable = false)
@@ -38,9 +38,9 @@ public class UserEntity {
     @JsonIgnore
     private Set<ProjectEntity> createdProjects = new HashSet<>();
 
-    @ManyToMany(mappedBy = "collaborators")
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     @JsonIgnore
-    private Set<ProjectEntity> collaboratingProjects = new HashSet<>();
+    private Set<ProjectCollaboratorEntity> projectCollaborations = new HashSet<>();
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     @JsonIgnore
@@ -130,12 +130,12 @@ public class UserEntity {
         this.createdProjects = createdProjects;
     }
 
-    public Set<ProjectEntity> getCollaboratingProjects() {
-        return collaboratingProjects;
+    public Set<ProjectCollaboratorEntity> getProjectCollaborations() {
+        return projectCollaborations;
     }
 
-    public void setCollaboratingProjects(Set<ProjectEntity> collaboratingProjects) {
-        this.collaboratingProjects = collaboratingProjects;
+    public void setProjectCollaborations(Set<ProjectCollaboratorEntity> projectCollaborations) {
+        this.projectCollaborations = projectCollaborations;
     }
 
     public Set<CommentEntity> getComments() {

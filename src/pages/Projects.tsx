@@ -1,13 +1,14 @@
-import React from 'react'
-import { Link, useSearchParams, useNavigate } from 'react-router-dom'
-import { nanoid } from 'nanoid'
-import api from '../services/api'
-import { useAuth } from '../services/auth'
-import { ActivityLogger, ActivityTypes } from '../services/activityLogger'
-import session from '../services/session'
+// Local type for file metadata used in upload
+type FileMeta = { id: string; name: string; type: string; dataUrl?: string };
 
-type FileMeta = { id: string; name: string; type: string; dataUrl?: string }
-type Project = { id: string; name: string; description?: string; files: FileMeta[] }
+import React, { useState, useEffect, useRef } from 'react';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { nanoid } from 'nanoid';
+import api from '../services/api';
+import { useAuth } from '../services/auth';
+import { ActivityLogger, ActivityTypes } from '../services/activityLogger';
+import session from '../services/session';
+import type { Project, ProjectFile } from '../types';
 
 export default function Projects() {
     const [searchParams] = useSearchParams()
@@ -26,8 +27,13 @@ export default function Projects() {
 
     React.useEffect(() => {
         api.getProjects().then((p: any) => {
-            setProjects(p || [])
-            ActivityLogger.log(ActivityTypes.VIEW_PROJECTS, `Viewed ${(p || []).length} projects`)
+            // Ensure every project has a collaborators array
+            const fixed = (p || []).map((proj: any) => ({
+                ...proj,
+                collaborators: Array.isArray(proj.collaborators) ? proj.collaborators : []
+            }))
+            setProjects(fixed)
+            ActivityLogger.log(ActivityTypes.VIEW_PROJECTS, `Viewed ${fixed.length} projects`)
         }).catch((err) => {
             console.error('Error loading projects:', err)
             setProjects([])
@@ -634,40 +640,47 @@ export default function Projects() {
                                     </div>
 
                                     {/* Collaborators */}
-                                    <div style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.5rem',
-                                        paddingTop: '1rem',
-                                        borderTop: '1px solid #E5E7EB'
-                                    }}>
-                                        <div style={{ display: 'flex', marginRight: '0.5rem' }}>
-                                            {['#4285F4', '#EA4335', '#A142F4'].slice(0, Math.min(3, Math.max(1, Math.floor(Math.random() * 3) + 1))).map((color, idx) => (
-                                                <div key={idx} style={{
-                                                    width: '32px',
-                                                    height: '32px',
-                                                    borderRadius: '50%',
-                                                    background: color,
-                                                    border: '2px solid white',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    color: 'white',
-                                                    fontSize: '0.75rem',
-                                                    fontWeight: '600',
-                                                    marginLeft: idx > 0 ? '-8px' : '0'
-                                                }}>
-                                                    {['J', 'E', 'M'][idx]}
-                                                </div>
-                                            ))}
-                                        </div>
-                                        <span style={{
-                                            fontSize: '0.8125rem',
-                                            color: '#5F6368'
+                                    {(Array.isArray(p.collaborators) && p.collaborators.length > 0) && (
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem',
+                                            paddingTop: '1rem',
+                                            borderTop: '1px solid #E5E7EB'
                                         }}>
-                                            {Math.floor(Math.random() * 3) + 1} {Math.floor(Math.random() * 3) + 1 === 1 ? 'collaborator' : 'collaborators'}
-                                        </span>
-                                    </div>
+                                            <div style={{ display: 'flex', marginRight: '0.5rem' }}>
+                                                {p.collaborators.slice(0, 3).map((collab, idx) => {
+                                                    const colorArr = ['#4285F4', '#EA4335', '#A142F4'];
+                                                    const color = colorArr[idx % colorArr.length];
+                                                    const initials = (collab.name || collab.email || '?').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+                                                    return (
+                                                        <div key={collab.id || idx} style={{
+                                                            width: '32px',
+                                                            height: '32px',
+                                                            borderRadius: '50%',
+                                                            background: color,
+                                                            border: '2px solid white',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            color: 'white',
+                                                            fontSize: '0.75rem',
+                                                            fontWeight: '600',
+                                                            marginLeft: idx > 0 ? '-8px' : '0'
+                                                        }}>
+                                                            {initials}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            <span style={{
+                                                fontSize: '0.8125rem',
+                                                color: '#5F6368'
+                                            }}>
+                                                {p.collaborators.length} {p.collaborators.length === 1 ? 'collaborator' : 'collaborators'}
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>

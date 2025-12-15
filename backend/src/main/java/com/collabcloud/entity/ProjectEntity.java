@@ -29,17 +29,12 @@ public class ProjectEntity {
 
     @ManyToOne
     @JoinColumn(name = "creator_id", nullable = false)
-    @JsonIgnoreProperties({ "createdProjects", "collaboratingProjects", "comments", "password" })
+    @JsonIgnoreProperties({ "createdProjects", "projectCollaborations", "comments", "password" })
     private UserEntity creator;
 
-    @ManyToMany
-    @JoinTable(
-        name = "project_collaborators",
-        joinColumns = @JoinColumn(name = "project_id"),
-        inverseJoinColumns = @JoinColumn(name = "user_id")
-    )
-    @JsonIgnoreProperties({ "createdProjects", "collaboratingProjects", "comments", "password", "bio", "profilePicture", "lastLogin" })
-    private Set<UserEntity> collaborators = new HashSet<>();
+    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL)
+    @JsonIgnoreProperties("project")
+    private Set<ProjectCollaboratorEntity> collaborators = new HashSet<>();
 
     @OneToMany(mappedBy = "project", cascade = CascadeType.ALL)
     @JsonIgnore
@@ -110,11 +105,11 @@ public class ProjectEntity {
         this.creator = creator;
     }
 
-    public Set<UserEntity> getCollaborators() {
+    public Set<ProjectCollaboratorEntity> getCollaborators() {
         return collaborators;
     }
 
-    public void setCollaborators(Set<UserEntity> collaborators) {
+    public void setCollaborators(Set<ProjectCollaboratorEntity> collaborators) {
         this.collaborators = collaborators;
     }
 

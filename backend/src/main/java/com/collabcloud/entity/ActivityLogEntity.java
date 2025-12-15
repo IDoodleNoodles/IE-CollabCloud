@@ -33,7 +33,8 @@ public class ActivityLogEntity {
 
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = true)
-    @JsonIgnoreProperties({"createdProjects", "collaboratingProjects", "comments", "password", "bio", "profilePicture", "lastLogin"})
+    @JsonIgnoreProperties({ "createdProjects", "projectCollaborations", "comments", "password", "bio", "profilePicture",
+            "lastLogin" })
     private UserEntity user;
 
     // Constructors

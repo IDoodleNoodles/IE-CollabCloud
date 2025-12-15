@@ -2,9 +2,11 @@ package com.collabcloud.service;
 
 import com.collabcloud.entity.CommentEntity;
 import com.collabcloud.entity.FileEntity;
+import com.collabcloud.entity.ProjectEntity;
 import com.collabcloud.entity.UserEntity;
 import com.collabcloud.repository.CommentRepository;
 import com.collabcloud.repository.FileRepository;
+import com.collabcloud.repository.ProjectRepository;
 import com.collabcloud.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -21,6 +23,9 @@ public class CommentService {
 
     @Autowired
     private FileRepository fileRepository;
+
+    @Autowired
+    private ProjectRepository projectRepository;
 
     @Autowired
     private UserRepository userRepository;
@@ -41,6 +46,10 @@ public class CommentService {
         return commentRepository.findByUserUserId(userId);
     }
 
+    public List<CommentEntity> getCommentsByProjectId(Long projectId) {
+        return commentRepository.findByProjectProjectId(projectId);
+    }
+
     public CommentEntity createComment(CommentEntity comment) {
         // If user is provided with only ID, fetch the full entity
         if (comment.getUser() != null && comment.getUser().getUserId() != null) {
@@ -58,6 +67,18 @@ public class CommentService {
             comment.setFile(file);
         } else {
             comment.setFile(null);
+        }
+
+        // If project is provided with only ID, fetch the full entity (project is
+        // optional)
+        if (comment.getProject() != null && comment.getProject().getProjectId() != null) {
+            ProjectEntity project = projectRepository.findById(comment.getProject().getProjectId())
+                    .orElseThrow(
+                            () -> new RuntimeException(
+                                    "Project not found with id: " + comment.getProject().getProjectId()));
+            comment.setProject(project);
+        } else {
+            comment.setProject(null);
         }
 
         comment.setCreatedDate(LocalDateTime.now());

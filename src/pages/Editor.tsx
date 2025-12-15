@@ -5,53 +5,59 @@ import { encodeToBase64, decodeFromBase64 } from '../utils/helpers'
 import api from '../services/api'
 import session from '../services/session'
 
-export default function Editor() {
-    const { projectId, fileId } = useParams()
-    const navigate = useNavigate()
-    const [content, setContent] = React.useState('')
-    const [meta, setMeta] = React.useState<any>(null)
-    const [unsaved, setUnsaved] = React.useState(false)
-    const [commitMessage, setCommitMessage] = React.useState('')
-    const [showCommitDialog, setShowCommitDialog] = React.useState(false)
-    const [lineCount, setLineCount] = React.useState(1)
-    const [charCount, setCharCount] = React.useState(0)
-    const [loading, setLoading] = React.useState(true)
-    const [imageUrl, setImageUrl] = React.useState<string | null>(null)
-    const isReadOnly = new URLSearchParams(window.location.search).get('readonly') === 'true'
+
+function Editor() {
+    const { projectId, fileId } = useParams();
+    const navigate = useNavigate();
+    const [content, setContent] = React.useState('');
+    const [meta, setMeta] = React.useState<any>(null);
+    const [unsaved, setUnsaved] = React.useState(false);
+    const [commitMessage, setCommitMessage] = React.useState('');
+    const [showCommitDialog, setShowCommitDialog] = React.useState(false);
+    const [lineCount, setLineCount] = React.useState(1);
+    const [charCount, setCharCount] = React.useState(0);
+    const [loading, setLoading] = React.useState(true);
+    const [imageUrl, setImageUrl] = React.useState<string | null>(null);
+    const [project, setProject] = React.useState<any>(null);
+    const profile = session.getUser() || {};
+    // isReadOnly: true if URL param, or if user does not have edit permission
+    const [isReadOnly, setIsReadOnly] = React.useState(true);
 
     React.useEffect(() => {
         async function loadFile() {
-            console.log('[Editor] Loading file:', { projectId, fileId })
             setLoading(true)
             try {
                 const urlParams = new URLSearchParams(window.location.search)
                 const versionId = urlParams.get('versionId')
-
                 // Always load project & file from backend
-                console.log('[Editor] Loading from API...')
                 const p = await api.getProject(projectId as string)
-                console.log('[Editor] Project from API:', p)
+                setProject(p)
                 const f = p?.files?.find((x: any) => String(x.id) === String(fileId))
-                console.log('[Editor] File from API:', f)
-
                 if (!p) {
-                    console.error('[Editor] Project not found (backend)')
                     alert('Project not found')
                     navigate('/projects')
                     return
                 }
-
                 if (!f) {
-                    console.error('[Editor] File not found in project (backend)')
                     alert('File not found')
                     navigate(`/projects/${projectId}`)
                     return
                 }
-
                 setMeta({ projectId, fileId, name: f?.name, type: f?.type, projectName: p?.name })
-
+                // Permission logic
+                const ownerId = String(p.ownerId)
+                const userId = String(profile.userId || profile.id)
+                let myPermission = 'view';
+                if (ownerId && userId && ownerId === userId) {
+                    myPermission = 'edit';
+                } else {
+                    const collab = (p.collaborators || []).find((c: any) => String(c.id || c.userId) === userId);
+                    if (collab?.permission) myPermission = collab.permission;
+                }
+                // isReadOnly: true if URL param, or if not owner and not 'edit'
+                setIsReadOnly(urlParams.get('readonly') === 'true' || (myPermission !== 'edit'));
                 // If viewing a specific version, load that version's content from API
-                if (versionId && isReadOnly) {
+                if (versionId && (urlParams.get('readonly') === 'true' || myPermission !== 'edit')) {
                     try {
                         const versions = await api.listVersions()
                         const version = versions.find((v: any) => String(v.id) === String(versionId))
@@ -67,28 +73,18 @@ export default function Editor() {
                         console.warn('[Editor] Failed to load versions from API:', err)
                     }
                 }
-
-                ActivityLogger.log(ActivityTypes.EDIT_FILE, `Opened file for editing: ${f.name}`, projectId)
-
+                ActivityLogger.log(ActivityTypes.EDIT_FILE, `Opened file for ${myPermission === 'edit' ? 'editing' : 'viewing'}: ${f.name}`, projectId)
                 // Load file content
                 if (f.dataUrl && !f.dataUrl.startsWith('data:')) {
                     // File is stored on backend, fetch it
-                    console.log('[Editor] Fetching file content from backend:', f.dataUrl)
-
-                    // Check if file is an image
                     const isImage = f.type?.startsWith('image/')
-
                     if (isImage) {
-                        // For images, just set the URL for preview
                         const imagePreviewUrl = `/api/files/${fileId}/download`
                         setImageUrl(imagePreviewUrl)
-                        console.log('[Editor] Image file, using preview URL:', imagePreviewUrl)
                         setLoading(false)
                         return
                     }
-
                     try {
-                        // Add timestamp to prevent caching
                         const cacheBuster = `?t=${Date.now()}`
                         const response = await fetch(`/api/files/${fileId}/download${cacheBuster}`, {
                             cache: 'no-store'
@@ -99,27 +95,19 @@ export default function Editor() {
                             setContent(text)
                             setLineCount(text.split('\n').length)
                             setCharCount(text.length)
-                            console.log('[Editor] File content loaded from backend')
                         } else {
-                            console.error('[Editor] Failed to fetch file:', response.status)
                             setContent('// Error loading file from server')
                         }
                     } catch (err) {
-                        console.error('[Editor] Error fetching file:', err)
                         setContent('// Error loading file from server')
                     }
                 } else {
-                    // Decode from data URL or handle images
                     const isImage = f.type?.startsWith('image/')
-
                     if (isImage && f.dataUrl?.startsWith('data:')) {
-                        // For data URL images, use directly for preview
                         setImageUrl(f.dataUrl)
-                        console.log('[Editor] Image file with data URL')
                         setLoading(false)
                         return
                     }
-
                     try {
                         if (f.dataUrl?.startsWith('data:text') || f.name?.match(/\.(txt|md|py|js|json|css|html|ts|tsx|jsx)$/i)) {
                             const arr = f.dataUrl.split(',')
@@ -135,20 +123,17 @@ export default function Editor() {
                             setContent('// Binary or preview-only file')
                         }
                     } catch (error) {
-                        console.error('[Editor] Error decoding file:', error)
                         setContent('// Error loading file content')
                     }
                 }
             } catch (error) {
-                console.error('[Editor] Error loading file:', error)
                 alert('Error loading file')
             } finally {
                 setLoading(false)
             }
         }
-
         loadFile()
-    }, [projectId, fileId, isReadOnly, navigate])
+    }, [projectId, fileId, profile, navigate])
 
     React.useEffect(() => {
         const handler = (e: BeforeUnloadEvent) => {
@@ -183,7 +168,7 @@ export default function Editor() {
                         'Content-Type': 'application/json',
                         ...(token ? { 'Authorization': `Bearer ${token}` } : {})
                     },
-                    body: JSON.stringify({ 
+                    body: JSON.stringify({
                         content,
                         userId: userId ? String(userId) : undefined
                     })
@@ -536,3 +521,4 @@ export default function Editor() {
         </div>
     )
 }
+export default Editor;

@@ -25,6 +25,22 @@ export default function ProjectDetail() {
     const [showHistoryContent, setShowHistoryContent] = React.useState(false)
     const [selectedHistoryEntry, setSelectedHistoryEntry] = React.useState<any>(null)
     const profile = session.getUser() || {}
+    // Helper: is current user the owner?
+    const isOwner = React.useMemo(() => {
+        if (!project || !profile) return false;
+        const ownerId = String(project.ownerId || project.owner?.id || project.owner);
+        const userId = String(profile.userId || profile.id);
+        return ownerId && userId && ownerId === userId;
+    }, [project, profile]);
+
+    // Get current user's permission (edit, comment, view)
+    const myPermission = React.useMemo(() => {
+        if (isOwner) return 'edit';
+        if (!project || !profile) return 'view';
+        const userId = String(profile.userId || profile.id);
+        const collab = (project.collaborators || []).find((c: any) => String(c.id || c.userId) === userId);
+        return collab?.permission || 'view';
+    }, [project, profile, isOwner]);
 
     React.useEffect(() => {
         async function load() {
@@ -36,10 +52,9 @@ export default function ProjectDetail() {
                     const files = await api.getFilesByProject(String(p.id))
                     // Merge files into project if backend doesn't include them
                     setProject((prev: any) => ({ ...prev, files }))
-                    const allServerComments = await api.getComments()
-                    const filtered = (allServerComments || []).filter((c: any) => c.projectId === String(p.id))
+                    const allServerComments = await api.getCommentsByProject(String(p.id))
                     // adapt to local Comment shape by filling missing fields
-                    const adapted: Comment[] = filtered.map((c: any) => ({
+                    const adapted: Comment[] = (allServerComments || []).map((c: any) => ({
                         id: c.id,
                         projectId: c.projectId,
                         text: c.text,
@@ -263,28 +278,30 @@ export default function ProjectDetail() {
                                 margin: 0
                             }}>{project.name}</h1>
                             <div style={{ display: 'flex', gap: '0.75rem' }}>
-                                <button
-                                    onClick={() => navigate(`/projects/${project.id}/edit`)}
-                                    style={{
-                                        padding: '0.625rem 1.25rem',
-                                        borderRadius: '8px',
-                                        border: '1px solid #E5E7EB',
-                                        background: 'white',
-                                        color: '#5F6368',
-                                        fontSize: '0.875rem',
-                                        fontWeight: '500',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.5rem'
-                                    }}
-                                >
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                    </svg>
-                                    Edit
-                                </button>
+                                {isOwner && (
+                                    <button
+                                        onClick={() => navigate(`/projects/${project.id}/edit`)}
+                                        style={{
+                                            padding: '0.625rem 1.25rem',
+                                            borderRadius: '8px',
+                                            border: '1px solid #E5E7EB',
+                                            background: 'white',
+                                            color: '#5F6368',
+                                            fontSize: '0.875rem',
+                                            fontWeight: '500',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem'
+                                        }}
+                                    >
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                        </svg>
+                                        Edit
+                                    </button>
+                                )}
                                 <button
                                     onClick={() => setShowShareModal(true)}
                                     style={{
@@ -336,7 +353,7 @@ export default function ProjectDetail() {
                                     color: '#202124',
                                     margin: 0,
                                     fontWeight: '500'
-                                }}>{profile?.name || user?.name || 'Sharaine Salutan'}</p>
+                                }}>{project?.ownerName || project?.ownerEmail || project?.ownerId || 'Unknown Owner'}</p>
                             </div>
                             <div>
                                 <p style={{
@@ -415,32 +432,34 @@ export default function ProjectDetail() {
                                             </div>
                                         </div>
                                         <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                            <button
-                                                onClick={() => {
-                                                    if (!f.id) {
-                                                        alert('File ID is missing. Please re-upload the file.')
-                                                        return
-                                                    }
-                                                    navigate(`/editor/${project.id}/${f.id}`)
-                                                }}
-                                                style={{
-                                                    background: '#F0F4F9',
-                                                    border: 'none',
-                                                    cursor: 'pointer',
-                                                    padding: '0.5rem',
-                                                    color: '#5F6368',
-                                                    borderRadius: '6px',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center'
-                                                }}
-                                                title="Edit"
-                                            >
-                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                                </svg>
-                                            </button>
+                                            {(isOwner || myPermission === 'edit') && (
+                                                <button
+                                                    onClick={() => {
+                                                        if (!f.id) {
+                                                            alert('File ID is missing. Please re-upload the file.')
+                                                            return
+                                                        }
+                                                        navigate(`/editor/${project.id}/${f.id}`)
+                                                    }}
+                                                    style={{
+                                                        background: '#F0F4F9',
+                                                        border: 'none',
+                                                        cursor: 'pointer',
+                                                        padding: '0.5rem',
+                                                        color: '#5F6368',
+                                                        borderRadius: '6px',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center'
+                                                    }}
+                                                    title="Edit"
+                                                >
+                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                                    </svg>
+                                                </button>
+                                            )}
                                             <button
                                                 onClick={() => {
                                                     if (!f.id) {
@@ -634,47 +653,51 @@ export default function ProjectDetail() {
                                 </svg>
                                 Collaborators
                             </h3>
-                            <button
-                                onClick={() => setShowCollaboratorsModal(true)}
-                                style={{
-                                    background: 'transparent',
-                                    border: 'none',
-                                    color: '#4285F4',
-                                    fontSize: '0.875rem',
-                                    fontWeight: '500',
-                                    cursor: 'pointer',
-                                    padding: 0
-                                }}
-                            >
-                                Manage
-                            </button>
+                            {isOwner && (
+                                <button
+                                    onClick={() => setShowCollaboratorsModal(true)}
+                                    style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: '#4285F4',
+                                        fontSize: '0.875rem',
+                                        fontWeight: '500',
+                                        cursor: 'pointer',
+                                        padding: 0
+                                    }}
+                                >
+                                    Manage
+                                </button>
+                            )}
                         </div>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             {collaborators.length === 0 ? (
-                                <button
-                                    onClick={() => setShowCollaboratorsModal(true)}
-                                    style={{
-                                        padding: '0.75rem',
-                                        border: '1px dashed #DADCE0',
-                                        borderRadius: '8px',
-                                        background: 'transparent',
-                                        color: '#5F6368',
-                                        fontSize: '0.875rem',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        gap: '0.5rem',
-                                        margin: '0.5rem 0'
-                                    }}
-                                >
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <line x1="12" y1="5" x2="12" y2="19" />
-                                        <line x1="5" y1="12" x2="19" y2="12" />
-                                    </svg>
-                                    Add Collaborator
-                                </button>
+                                isOwner && (
+                                    <button
+                                        onClick={() => setShowCollaboratorsModal(true)}
+                                        style={{
+                                            padding: '0.75rem',
+                                            border: '1px dashed #DADCE0',
+                                            borderRadius: '8px',
+                                            background: 'transparent',
+                                            color: '#5F6368',
+                                            fontSize: '0.875rem',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '0.5rem',
+                                            margin: '0.5rem 0'
+                                        }}
+                                    >
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <line x1="12" y1="5" x2="12" y2="19" />
+                                            <line x1="5" y1="12" x2="19" y2="12" />
+                                        </svg>
+                                        Add Collaborator
+                                    </button>
+                                )
                             ) : (
                                 collaborators.map((collab) => (
                                     <div key={collab.id} style={{
@@ -839,18 +862,19 @@ export default function ProjectDetail() {
                             />
                             <button
                                 onClick={addComment}
-                                disabled={!commentText.trim()}
+                                disabled={!commentText.trim() || !(isOwner || myPermission === 'edit' || myPermission === 'comment')}
                                 style={{
                                     width: '100%',
                                     padding: '0.75rem',
                                     borderRadius: '8px',
                                     border: 'none',
-                                    background: !commentText.trim() ? '#E5E7EB' : '#4285F4',
+                                    background: (!commentText.trim() || !(isOwner || myPermission === 'edit' || myPermission === 'comment')) ? '#E5E7EB' : '#4285F4',
                                     color: 'white',
                                     fontSize: '0.875rem',
                                     fontWeight: '500',
-                                    cursor: !commentText.trim() ? 'not-allowed' : 'pointer'
+                                    cursor: (!commentText.trim() || !(isOwner || myPermission === 'edit' || myPermission === 'comment')) ? 'not-allowed' : 'pointer'
                                 }}
+                                title={!(isOwner || myPermission === 'edit' || myPermission === 'comment') ? 'You do not have permission to comment' : undefined}
                             >
                                 Post Comment
                             </button>
@@ -1079,12 +1103,12 @@ export default function ProjectDetail() {
                                     marginRight: '0.5rem'
                                 }}>{selectedHistoryEntry.changeType}</span>
                                 <span style={{ fontSize: '0.875rem', color: '#9CA3AF' }}>
-                                    {new Date(selectedHistoryEntry.modifiedDate).toLocaleString('en-US', { 
-                                        month: 'short', 
-                                        day: 'numeric', 
-                                        year: 'numeric', 
-                                        hour: '2-digit', 
-                                        minute: '2-digit' 
+                                    {new Date(selectedHistoryEntry.modifiedDate).toLocaleString('en-US', {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        year: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
                                     })}
                                 </span>
                             </div>
