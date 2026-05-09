@@ -21,7 +21,7 @@ public class FileEntity {
     @Column(nullable = false)
     private String fileType;
 
-    @Column(nullable = false, columnDefinition = "MEDIUMTEXT")
+    @Column(nullable = false, columnDefinition = "text")
     private String filePath;
 
     @Column(nullable = false)

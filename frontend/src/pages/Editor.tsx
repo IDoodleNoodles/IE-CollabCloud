@@ -76,19 +76,16 @@ function Editor() {
                 ActivityLogger.log(ActivityTypes.EDIT_FILE, `Opened file for ${myPermission === 'edit' ? 'editing' : 'viewing'}: ${f.name}`, projectId)
                 // Load file content
                 if (f.dataUrl && !f.dataUrl.startsWith('data:')) {
-                    // File is stored on backend, fetch it
+                    // File is stored on backend, fetch a signed URL for preview/download
+                    const signedUrl = await api.getFileUrl(String(f.id))
                     const isImage = f.type?.startsWith('image/')
                     if (isImage) {
-                        const imagePreviewUrl = `/api/files/${fileId}/download`
-                        setImageUrl(imagePreviewUrl)
+                        setImageUrl(signedUrl)
                         setLoading(false)
                         return
                     }
                     try {
-                        const cacheBuster = `?t=${Date.now()}`
-                        const response = await fetch(`/api/files/${fileId}/download${cacheBuster}`, {
-                            cache: 'no-store'
-                        })
+                        const response = await fetch(signedUrl, { cache: 'no-store' })
                         if (response.ok) {
                             const blob = await response.blob()
                             const text = await blob.text()

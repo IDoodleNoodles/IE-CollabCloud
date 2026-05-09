@@ -6,8 +6,8 @@ export default defineConfig({
     server: {
         port: 5173,
         proxy: {
-            // Proxy only backend API routes; let SPA routes be handled client-side
-            '/auth': { target: 'http://localhost:8080', changeOrigin: true, secure: false },
+            // Keep the /auth page route client-side; proxy only auth API subpaths.
+            '/auth/': { target: 'http://localhost:8080', changeOrigin: true, secure: false },
             '/api': { target: 'http://localhost:8080', changeOrigin: true, secure: false }
         }
     }

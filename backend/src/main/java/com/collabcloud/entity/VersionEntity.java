@@ -21,7 +21,7 @@ public class VersionEntity {
     @Column(nullable = false)
     private String versionNumber;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Column(nullable = false, columnDefinition = "text")
     private String content;
 
     @ManyToOne
