@@ -299,6 +299,10 @@ const api = {
         const data = await restFetch(`/api/files/${fileId}/url`)
         return data?.url || ''
     },
+    async getFileMeta(fileId: string): Promise<{ size: number }> {
+        const data = await restFetch(`/api/files/${fileId}/meta`)
+        return { size: data?.size || 0 }
+    },
 
     async updateProject(id: string, updates: Partial<Project>): Promise<Project | undefined> {
         console.log('[API] updateProject called with id:', id, 'updates:', updates)
