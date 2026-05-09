@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 @RestController
 @RequestMapping("/api/files")
@@ -75,7 +76,8 @@ public class FileController {
             String filePath = fileStorageService.storeFile(file);
 
             // Get project
-            ProjectEntity project = projectRepository.findById(projectId)
+                Long safeProjectId = Objects.requireNonNull(projectId, "projectId");
+                ProjectEntity project = projectRepository.findById(safeProjectId)
                     .orElseThrow(() -> new RuntimeException("Project not found with id: " + projectId));
 
             // Create file entity
@@ -238,6 +240,36 @@ public class FileController {
         }
     }
 
+    @GetMapping("/{id}/download")
+    public ResponseEntity<Void> downloadFile(@PathVariable("id") Long fileId) {
+        try {
+            FileEntity file = fileService.getFileById(fileId)
+                    .orElseThrow(() -> new RuntimeException("File not found"));
+
+            String signedUrl = fileStorageService.getSignedUrl(file.getFilePath());
+            return ResponseEntity.status(302)
+                    .header("Location", signedUrl)
+                    .build();
+        } catch (Exception e) {
+            logger.error("Error generating download URL for file {}", fileId, e);
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @GetMapping("/{id}/url")
+    public ResponseEntity<Map<String, String>> getFileUrl(@PathVariable("id") Long fileId) {
+        try {
+            FileEntity file = fileService.getFileById(fileId)
+                    .orElseThrow(() -> new RuntimeException("File not found"));
+
+            String signedUrl = fileStorageService.getSignedUrl(file.getFilePath());
+            return ResponseEntity.ok(Map.of("url", signedUrl));
+        } catch (Exception e) {
+            logger.error("Error getting URL for file {}", fileId, e);
+            return ResponseEntity.notFound().build();
+        }
+    }
+
     /**
      * Upload multiple files from data URLs (for backward compatibility with
      * frontend)
@@ -300,38 +332,4 @@ public class FileController {
         }
     }
 
-    /**
-     * Download file content
-     */
-    @GetMapping("/{id}/download")
-    public ResponseEntity<byte[]> downloadFile(@PathVariable("id") Long fileId) {
-        try {
-            FileEntity file = fileService.getFileById(fileId)
-                    .orElseThrow(() -> new RuntimeException("File not found"));
-
-            if (file.getFilePath().startsWith("data:")) {
-                // Return data URL as-is for backward compatibility
-                return ResponseEntity.ok()
-                        .header("Content-Type", file.getFileType())
-                        .header("Content-Disposition", "attachment; filename=\"" + file.getFileName() + "\"")
-                        .header("Cache-Control", "no-cache, no-store, must-revalidate")
-                        .header("Pragma", "no-cache")
-                        .header("Expires", "0")
-                        .body(file.getFilePath().getBytes());
-            } else {
-                // Read file from disk
-                byte[] fileContent = fileStorageService.readFile(file.getFilePath());
-                return ResponseEntity.ok()
-                        .header("Content-Type", file.getFileType())
-                        .header("Content-Disposition", "attachment; filename=\"" + file.getFileName() + "\"")
-                        .header("Cache-Control", "no-cache, no-store, must-revalidate")
-                        .header("Pragma", "no-cache")
-                        .header("Expires", "0")
-                        .body(fileContent);
-            }
-        } catch (Exception e) {
-            logger.error("Error downloading file", e);
-            return ResponseEntity.notFound().build();
-        }
-    }
 }

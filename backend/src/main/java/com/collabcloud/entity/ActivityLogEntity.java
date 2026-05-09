@@ -18,7 +18,7 @@ public class ActivityLogEntity {
     @Column(nullable = false)
     private LocalDateTime timestamp;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Column(nullable = false, columnDefinition = "text")
     private String data;
 
     @Column(nullable = false)

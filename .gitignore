@@ -9,3 +9,26 @@ coverage/
 package-lock.json
 /.cache
 /*.log
+
+# Secrets
+backend/src/main/resources/secret.properties
+secret.properties
+
+# Frontend (in root - deprecated, use frontend/ instead)
+/src/
+/index.html
+/package.json (at root)
+/tsconfig.json (at root)
+/vite.config.ts (at root)
+
+# Frontend (active)
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+
+# Backend
+backend/target/
+
+# Misc
+docs/
+/uploads/

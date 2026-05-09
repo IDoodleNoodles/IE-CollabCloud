@@ -1,18 +1,20 @@
 package com.collabcloud.service;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-import javax.annotation.PostConstruct;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.UUID;
 
@@ -20,40 +22,34 @@ import java.util.UUID;
 public class FileStorageService {
     private static final Logger logger = LoggerFactory.getLogger(FileStorageService.class);
 
-    @Value("${file.upload-dir:uploads}")
-    private String uploadDir;
+    @Value("${supabase.url}")
+    private String supabaseUrl;
 
-    private Path fileStorageLocation;
+    @Value("${supabase.service-key}")
+    private String serviceKey;
 
-    @PostConstruct
-    public void init() {
-        this.fileStorageLocation = Paths.get(uploadDir).toAbsolutePath().normalize();
-        try {
-            Files.createDirectories(this.fileStorageLocation);
-            logger.info("File storage location initialized at: {}", this.fileStorageLocation);
-        } catch (Exception ex) {
-            throw new RuntimeException("Could not create the directory where the uploaded files will be stored.", ex);
-        }
-    }
+    @Value("${supabase.bucket}")
+    private String bucket;
+
+    private final HttpClient httpClient = HttpClient.newHttpClient();
 
     /**
      * Store a multipart file and return the relative file path
      */
     public String storeFile(MultipartFile file) {
-        String originalFileName = StringUtils.cleanPath(file.getOriginalFilename());
+        String rawOriginalFileName = file.getOriginalFilename();
+        String originalFileName = "file";
+        if (rawOriginalFileName != null && !rawOriginalFileName.isBlank()) {
+            originalFileName = StringUtils.cleanPath(rawOriginalFileName);
+        }
         String fileName = generateUniqueFileName(originalFileName);
 
         try {
-            if (fileName.contains("..")) {
-                throw new RuntimeException("Invalid file path: " + fileName);
-            }
-
-            Path targetLocation = this.fileStorageLocation.resolve(fileName);
-            Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
-
-            logger.info("File stored successfully: {}", fileName);
-            return uploadDir + "/" + fileName;
-        } catch (IOException ex) {
+            byte[] bytes = file.getBytes();
+            uploadBytes(fileName, bytes);
+            logger.info("File stored successfully in Supabase: {}", fileName);
+            return getStoredFilePath(fileName);
+        } catch (Exception ex) {
             throw new RuntimeException("Could not store file " + fileName, ex);
         }
     }
@@ -63,8 +59,7 @@ public class FileStorageService {
      */
     public String storeFileFromDataUrl(String dataUrl, String fileName) {
         try {
-            logger.info("[FileStorageService] Storing file from data URL: {}", fileName);
-            logger.info("[FileStorageService] Upload directory: {}", this.fileStorageLocation.toAbsolutePath());
+            logger.info("[FileStorageService] Storing file from data URL in Supabase: {}", fileName);
 
             // Extract base64 data from data URL
             String base64Data;
@@ -80,16 +75,12 @@ public class FileStorageService {
             logger.info("[FileStorageService] Decoded {} bytes", decodedBytes.length);
 
             String uniqueFileName = generateUniqueFileName(fileName);
-            Path targetLocation = this.fileStorageLocation.resolve(uniqueFileName);
-            logger.info("[FileStorageService] Target file path: {}", targetLocation.toAbsolutePath());
+            uploadBytes(uniqueFileName, decodedBytes);
 
-            Files.write(targetLocation, decodedBytes);
-            logger.info("✅ [FileStorageService] File written successfully to disk");
-
-            String relativePath = uploadDir + "/" + uniqueFileName;
+            String relativePath = getStoredFilePath(uniqueFileName);
             logger.info("✅ [FileStorageService] Returning relative path: {}", relativePath);
             return relativePath;
-        } catch (IOException ex) {
+        } catch (Exception ex) {
             throw new RuntimeException("Could not store file from data URL: " + fileName, ex);
         }
     }
@@ -99,13 +90,22 @@ public class FileStorageService {
      */
     public void deleteFile(String filePath) {
         try {
-            // Remove the upload directory prefix if present
-            String fileName = filePath.replace(uploadDir + "/", "");
-            Path targetLocation = this.fileStorageLocation.resolve(fileName);
-            Files.deleteIfExists(targetLocation);
-            logger.info("File deleted: {}", fileName);
-        } catch (IOException ex) {
+            String fileName = extractFileName(filePath);
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(buildObjectDeleteUrl()))
+                    .header("Authorization", "Bearer " + serviceKey)
+                    .header("Content-Type", "application/json")
+                    .method("DELETE", HttpRequest.BodyPublishers.ofString("{\"prefixes\":[\"" + escapeJson(fileName) + "\"]}"))
+                    .build();
+
+            HttpResponse<String> response = sendStringRequest(request);
+            if (!isSuccess(response.statusCode())) {
+                throw new RuntimeException("Supabase delete failed with status " + response.statusCode() + ": " + response.body());
+            }
+            logger.info("File deleted from Supabase: {}", fileName);
+        } catch (Exception ex) {
             logger.error("Could not delete file: " + filePath, ex);
+            throw new RuntimeException("Could not delete file: " + filePath, ex);
         }
     }
 
@@ -114,10 +114,31 @@ public class FileStorageService {
      */
     public byte[] readFile(String filePath) {
         try {
-            String fileName = filePath.replace(uploadDir + "/", "");
-            Path targetLocation = this.fileStorageLocation.resolve(fileName);
-            return Files.readAllBytes(targetLocation);
-        } catch (IOException ex) {
+            if (filePath != null && filePath.startsWith("data:")) {
+                int commaIndex = filePath.indexOf(',');
+                String base64 = commaIndex >= 0 ? filePath.substring(commaIndex + 1) : filePath;
+                byte[] bytes = Base64.getDecoder().decode(base64);
+                ByteArrayResource resource = new ByteArrayResource(bytes != null ? bytes : new byte[0]);
+                return resource.getByteArray();
+            }
+
+            String fileName = extractFileName(filePath);
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(buildObjectReadUrl(fileName)))
+                    .header("Authorization", "Bearer " + serviceKey)
+                    .GET()
+                    .build();
+
+            HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
+            if (!isSuccess(response.statusCode())) {
+                String errorBody = new String(response.body(), StandardCharsets.UTF_8);
+                throw new RuntimeException("Supabase read failed with status " + response.statusCode() + ": " + errorBody);
+            }
+
+            byte[] bytes = response.body();
+            ByteArrayResource resource = new ByteArrayResource(bytes != null ? bytes : new byte[0]);
+            return resource.getByteArray();
+        } catch (Exception ex) {
             throw new RuntimeException("Could not read file: " + filePath, ex);
         }
     }
@@ -127,12 +148,111 @@ public class FileStorageService {
      */
     public void updateFileContent(String filePath, String content) {
         try {
-            String fileName = filePath.replace(uploadDir + "/", "");
-            Path targetLocation = this.fileStorageLocation.resolve(fileName);
-            Files.write(targetLocation, content.getBytes());
-            logger.info("File content updated: {}", fileName);
-        } catch (IOException ex) {
+            if (filePath != null && filePath.startsWith("data:")) {
+                logger.info("Skipping Supabase update for inline data URL: {}", filePath);
+                return;
+            }
+
+            String fileName = extractFileName(filePath);
+            uploadBytes(fileName, content.getBytes(StandardCharsets.UTF_8));
+            logger.info("File content updated in Supabase: {}", fileName);
+        } catch (Exception ex) {
             throw new RuntimeException("Could not update file content: " + filePath, ex);
+        }
+    }
+
+    private void uploadBytes(String fileName, byte[] bytes) throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(buildObjectUploadUrl(fileName)))
+                .header("Authorization", "Bearer " + serviceKey)
+                .header("Content-Type", "application/octet-stream")
+                .header("x-upsert", "true")
+                .POST(HttpRequest.BodyPublishers.ofByteArray(bytes))
+                .build();
+
+        HttpResponse<String> response = sendStringRequest(request);
+        if (!isSuccess(response.statusCode())) {
+            throw new RuntimeException("Supabase upload failed with status " + response.statusCode() + ": " + response.body());
+        }
+    }
+
+    private HttpResponse<String> sendStringRequest(HttpRequest request) throws IOException, InterruptedException {
+        return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    private boolean isSuccess(int statusCode) {
+        return statusCode >= 200 && statusCode < 300;
+    }
+
+    private String buildObjectUploadUrl(String fileName) {
+        return buildBaseUrl() + "/storage/v1/object/" + bucket + "/" + fileName;
+    }
+
+    private String buildObjectReadUrl(String fileName) {
+        return buildBaseUrl() + "/storage/v1/object/" + bucket + "/" + fileName;
+    }
+
+    private String buildObjectDeleteUrl() {
+        return buildBaseUrl() + "/storage/v1/object/" + bucket;
+    }
+
+    private String buildBaseUrl() {
+        return supabaseUrl.endsWith("/") ? supabaseUrl.substring(0, supabaseUrl.length() - 1) : supabaseUrl;
+    }
+
+    private String getStoredFilePath(String fileName) {
+        return bucket + "/" + fileName;
+    }
+
+    private String extractFileName(String filePath) {
+        if (filePath == null || filePath.isBlank()) {
+            throw new RuntimeException("File path is required");
+        }
+
+        String cleaned = filePath.replace('\\', '/');
+        int lastSlashIndex = cleaned.lastIndexOf('/');
+        if (lastSlashIndex >= 0) {
+            return cleaned.substring(lastSlashIndex + 1);
+        }
+        return cleaned;
+    }
+
+    private String escapeJson(String value) {
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    private String encodePathSegment(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
+    }
+
+    public String getSignedUrl(String filePath) {
+        try {
+            String fileName = extractFileName(filePath);
+            String url = buildBaseUrl() + "/storage/v1/object/sign/" + bucket + "/" + encodePathSegment(fileName);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("Authorization", "Bearer " + serviceKey)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString("{\"expiresIn\":3600}"))
+                    .build();
+
+            HttpResponse<String> response = sendStringRequest(request);
+            if (!isSuccess(response.statusCode())) {
+                throw new RuntimeException("Failed to get signed URL: " + response.body());
+            }
+
+            String body = response.body();
+            int start = body.indexOf("\"signedURL\":\"") + 13;
+            int end = body.indexOf('"', start);
+            if (start < 13 || end <= start) {
+                throw new RuntimeException("Unexpected signed URL response: " + body);
+            }
+
+            String signedPath = body.substring(start, end);
+            return buildBaseUrl() + signedPath;
+        } catch (Exception ex) {
+            throw new RuntimeException("Could not generate signed URL for: " + filePath, ex);
         }
     }
 

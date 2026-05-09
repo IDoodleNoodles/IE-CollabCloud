@@ -1,0 +1,27 @@
+{
+  "groups": [
+    {
+      "name": "supabase",
+      "type": "com.collabcloud.config.SupabaseProperties",
+      "sourceType": "com.collabcloud.config.SupabaseProperties"
+    }
+  ],
+  "properties": [
+    {
+      "name": "supabase.url",
+      "type": "java.lang.String",
+      "sourceType": "com.collabcloud.config.SupabaseProperties"
+    },
+    {
+      "name": "supabase.service-key",
+      "type": "java.lang.String",
+      "sourceType": "com.collabcloud.config.SupabaseProperties"
+    },
+    {
+      "name": "supabase.bucket",
+      "type": "java.lang.String",
+      "sourceType": "com.collabcloud.config.SupabaseProperties"
+    }
+  ],
+  "hints": []
+}

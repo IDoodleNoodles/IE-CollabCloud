@@ -16,6 +16,16 @@ const API_BASE: string = (import.meta as any).env?.VITE_API_BASE !== undefined
     ? (import.meta as any).env.VITE_API_BASE
     : ''
 
+let cachedProjectsUserId: string | null = null
+let cachedProjects: Project[] | null = null
+let cachedProjectsPromise: Promise<Project[]> | null = null
+
+function clearProjectsCache() {
+    cachedProjectsUserId = null
+    cachedProjects = null
+    cachedProjectsPromise = null
+}
+
 async function restFetch(path: string, opts: RequestInit = {}): Promise<any> {
     const headers: Record<string, string> = opts.headers ? { ...(opts.headers as Record<string, string>) } : {}
     const token = session.getToken()
@@ -151,6 +161,18 @@ function mapServerUser(u: any) {
     }
 }
 
+function dedupeProjects(projects: Project[]) {
+    const seen = new Set<string>()
+    return projects.filter(project => {
+        const projectId = String(project.id || project.projectId || '')
+        if (!projectId || seen.has(projectId)) {
+            return false
+        }
+        seen.add(projectId)
+        return true
+    })
+}
+
 const api = {
     // Update collaborator permission
     async updateCollaboratorPermission(projectId: string, userId: string, permission: string): Promise<Project | undefined> {
@@ -162,6 +184,7 @@ const api = {
             headers: { 'X-User-Id': String(ownerId), 'Content-Type': 'application/json' },
             body: JSON.stringify({ permission })
         })
+        clearProjectsCache()
         return mapServerProject(data)
     },
     // Auth
@@ -212,6 +235,7 @@ const api = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(projectData)
         })
+        clearProjectsCache()
         return mapServerProject(data)
     },
 
@@ -219,9 +243,30 @@ const api = {
         const user = session.getUser()
         const userId = user?.userId || user?.id
         if (userId) {
-            const created = await restFetch(`/api/projects/creator/${userId}`)
-            const collaborated = await restFetch(`/api/projects/collaborator/${userId}`)
-            return [...(created || []), ...(collaborated || [])].map(mapServerProject)
+            if (cachedProjects && cachedProjectsUserId === String(userId)) {
+                return cachedProjects
+            }
+
+            if (cachedProjectsPromise && cachedProjectsUserId === String(userId)) {
+                return cachedProjectsPromise
+            }
+
+            cachedProjectsUserId = String(userId)
+            cachedProjectsPromise = Promise.all([
+                restFetch(`/api/projects/creator/${userId}`),
+                restFetch(`/api/projects/collaborator/${userId}`)
+            ])
+                .then(([created, collaborated]) => {
+                    const projects = dedupeProjects([...(created || []), ...(collaborated || [])].map(mapServerProject))
+                    cachedProjects = projects
+                    return projects
+                })
+                .catch((err) => {
+                    clearProjectsCache()
+                    throw err
+                })
+
+            return cachedProjectsPromise
         }
         return []
     },
@@ -250,6 +295,11 @@ const api = {
         return mapped
     },
 
+    async getFileUrl(fileId: string): Promise<string> {
+        const data = await restFetch(`/api/files/${fileId}/url`)
+        return data?.url || ''
+    },
+
     async updateProject(id: string, updates: Partial<Project>): Promise<Project | undefined> {
         console.log('[API] updateProject called with id:', id, 'updates:', updates)
         // Map frontend fields to backend fields
@@ -263,6 +313,7 @@ const api = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(backendUpdates)
         })
+        clearProjectsCache()
 
         // If files were updated, upload new files to backend
         if (updates.files && Array.isArray(updates.files)) {
@@ -285,6 +336,7 @@ const api = {
 
     async deleteProject(id: string): Promise<{ ok: boolean }> {
         await restFetch(`/api/projects/${id}`, { method: 'DELETE' })
+        clearProjectsCache()
         return { ok: true }
     },
 
@@ -593,6 +645,7 @@ const api = {
             method: 'POST',
             headers: { 'X-User-Id': String(ownerId) }
         })
+        clearProjectsCache()
         return mapServerProject(data)
     },
 
@@ -613,13 +666,16 @@ const api = {
             method: 'DELETE',
             headers: { 'X-User-Id': String(ownerId) }
         })
+        clearProjectsCache()
         return mapServerProject(data)
     },
 
     async getProjectsByUser(userId: string): Promise<Project[]> {
-        const created = await restFetch(`/api/projects/creator/${userId}`)
-        const collaborated = await restFetch(`/api/projects/collaborator/${userId}`)
-        return [...(created || []), ...(collaborated || [])].map(mapServerProject)
+        const [created, collaborated] = await Promise.all([
+            restFetch(`/api/projects/creator/${userId}`),
+            restFetch(`/api/projects/collaborator/${userId}`)
+        ])
+        return dedupeProjects([...(created || []), ...(collaborated || [])].map(mapServerProject))
     },
 
     // File History
@@ -635,4 +691,3 @@ const api = {
 }
 
 export default api
-

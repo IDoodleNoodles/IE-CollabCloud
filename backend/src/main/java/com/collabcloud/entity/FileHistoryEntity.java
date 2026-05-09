@@ -19,7 +19,7 @@ public class FileHistoryEntity {
     @JoinColumn(name = "user_id")
     private UserEntity modifiedBy;
 
-    @Column(nullable = false, columnDefinition = "LONGTEXT")
+    @Column(nullable = false, columnDefinition = "text")
     private String content;
 
     @Column(nullable = false)
