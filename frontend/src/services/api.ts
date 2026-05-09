@@ -12,9 +12,17 @@ import session from './session'
 
 // API adapter: All operations now use the REST API backed by SQL database
 // Use empty string for relative URLs (proxied by Vite in dev)
-const API_BASE: string = (import.meta as any).env?.VITE_API_BASE !== undefined
-    ? (import.meta as any).env.VITE_API_BASE
-    : ''
+const API_BASE: string = (() => {
+    const envBase = (import.meta as any).env?.VITE_API_BASE
+    if (typeof envBase === 'string' && envBase.trim()) {
+        return envBase.trim().replace(/\/$/, '')
+    }
+    return (import.meta as any).env?.DEV ? 'http://localhost:8080' : ''
+})()
+
+if (!(import.meta as any).env?.DEV && !API_BASE) {
+    console.warn('[api] VITE_API_BASE is not set. Production API calls will use same-origin URLs.')
+}
 
 let cachedProjectsUserId: string | null = null
 let cachedProjects: Project[] | null = null
