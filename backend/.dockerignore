@@ -1,0 +1,7 @@
+target/
+.git/
+.gitignore
+README.md
+**/.DS_Store
+src/main/resources/secret.properties
+*.log
