@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.time.LocalDateTime;
 import java.util.Objects;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/files")
@@ -95,7 +96,8 @@ public class FileController {
             return ResponseEntity.status(HttpStatus.CREATED).body(savedFile);
         } catch (Exception e) {
             logger.error("Error uploading file", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            String msg = e.getMessage() == null ? "Storage error" : e.getMessage();
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, msg);
         }
     }
 
@@ -176,7 +178,8 @@ public class FileController {
             logger.error("❌ Error creating file - Exception type: {}", e.getClass().getName());
             logger.error("❌ Error message: {}", e.getMessage());
             logger.error("❌ Full stack trace:", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            String msg = e.getMessage() == null ? "Storage error" : e.getMessage();
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, msg);
         }
     }
 
@@ -223,6 +226,22 @@ public class FileController {
             return ResponseEntity.ok(file);
         } catch (RuntimeException e) {
             logger.error("Error updating file content: {}", e.getMessage());
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @GetMapping("/{id}/content")
+    public ResponseEntity<byte[]> getFileContent(@PathVariable("id") Long fileId) {
+        try {
+            FileEntity file = fileService.getFileById(fileId)
+                    .orElseThrow(() -> new RuntimeException("File not found with id: " + fileId));
+
+            byte[] content = fileStorageService.readFile(file.getFilePath());
+            return ResponseEntity.ok()
+                    .header("Content-Type", file.getFileType() != null ? file.getFileType() : "application/octet-stream")
+                    .body(content);
+        } catch (Exception e) {
+            logger.error("Error reading file content: {}", fileId, e);
             return ResponseEntity.notFound().build();
         }
     }
@@ -328,7 +347,32 @@ public class FileController {
             return ResponseEntity.status(HttpStatus.CREATED).body(savedFiles);
         } catch (Exception e) {
             logger.error("Error in batch upload", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            String msg = e.getMessage() == null ? "Storage error" : e.getMessage();
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, msg);
+        }
+    }
+
+    @GetMapping("/{id}/meta")
+    public ResponseEntity<Map<String, Object>> getFileMeta(@PathVariable("id") Long fileId) {
+        try {
+            FileEntity file = fileService.getFileById(fileId)
+                    .orElseThrow(() -> new RuntimeException("File not found"));
+            if (file.getFilePath().startsWith("data:")) {
+                // Estimate size from data URL
+                String dataUrl = file.getFilePath();
+                int comma = dataUrl.indexOf(',');
+                long size = 0L;
+                if (comma >= 0 && comma + 1 < dataUrl.length()) {
+                    String base64 = dataUrl.substring(comma + 1);
+                    size = (long) (base64.length() * 3 / 4);
+                }
+                return ResponseEntity.ok(Map.of("size", size));
+            }
+            long size = fileStorageService.getFileSize(file.getFilePath());
+            return ResponseEntity.ok(Map.of("size", size));
+        } catch (Exception e) {
+            logger.error("Error fetching file meta for {}", fileId, e);
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());
         }
     }
 

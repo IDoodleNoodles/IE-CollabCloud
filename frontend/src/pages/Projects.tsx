@@ -26,18 +26,31 @@ export default function Projects() {
     const profile = session.getUser() || {}
 
     React.useEffect(() => {
-        api.getProjects().then((p: any) => {
-            // Ensure every project has a collaborators array
-            const fixed = (p || []).map((proj: any) => ({
-                ...proj,
-                collaborators: Array.isArray(proj.collaborators) ? proj.collaborators : []
-            }))
-            setProjects(fixed)
-            ActivityLogger.log(ActivityTypes.VIEW_PROJECTS, `Viewed ${fixed.length} projects`)
-        }).catch((err) => {
-            console.error('Error loading projects:', err)
-            setProjects([])
-        })
+        ;(async () => {
+            try {
+                const p: any[] = await api.getProjects()
+                const fixed = await Promise.all((p || []).map(async (proj: any) => {
+                    let files: any[] = Array.isArray(proj.files) ? proj.files : []
+                    if (!files.length && proj.id) {
+                        try {
+                            files = await api.getFilesByProject(String(proj.id))
+                        } catch {
+                            files = []
+                        }
+                    }
+                    return {
+                        ...proj,
+                        files,
+                        collaborators: Array.isArray(proj.collaborators) ? proj.collaborators : []
+                    }
+                }))
+                setProjects(fixed as any)
+                ActivityLogger.log(ActivityTypes.VIEW_PROJECTS, `Viewed ${fixed.length} projects`)
+            } catch (err) {
+                console.error('Error loading projects:', err)
+                setProjects([])
+            }
+        })()
     }, [])
 
     React.useEffect(() => {
@@ -195,6 +208,147 @@ export default function Projects() {
     }
 
     const isUploadMode = searchParams.get('action') === 'upload'
+    const currentUserId = String(profile?.userId || profile?.id || user?.userId || user?.id || '')
+    const personalProjects = projects.filter((p: any) => String(p.ownerId || '') === currentUserId)
+    const memberProjects = projects.filter((p: any) => String(p.ownerId || '') !== currentUserId)
+
+    const renderProjectCard = (p: any) => (
+        <div key={p.id} style={{
+            background: 'white',
+            borderRadius: '12px',
+            padding: '1.75rem',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
+            border: '1px solid #E5E7EB',
+            transition: 'all 0.2s',
+            cursor: 'pointer'
+        }}
+            onMouseOver={(e) => {
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)'
+                e.currentTarget.style.transform = 'translateY(-2px)'
+            }}
+            onMouseOut={(e) => {
+                e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.08)'
+                e.currentTarget.style.transform = 'translateY(0)'
+            }}
+            onClick={() => window.location.href = `/projects/${p.id}`}
+        >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                <div style={{
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '12px',
+                    background: '#E8F0FE',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                }}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4285F4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                    </svg>
+                </div>
+                <span style={{
+                    background: '#E6F4EA',
+                    color: '#34A853',
+                    padding: '0.25rem 0.75rem',
+                    borderRadius: '12px',
+                    fontSize: '0.8125rem',
+                    fontWeight: '500'
+                }}>
+                    {p.files.length} {p.files.length === 1 ? 'file' : 'files'}
+                </span>
+            </div>
+
+            <h3 style={{
+                fontSize: '1.125rem',
+                fontWeight: '600',
+                color: '#202124',
+                marginBottom: '0.5rem',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+            }}>{p.name}</h3>
+
+            <p style={{
+                color: '#5F6368',
+                fontSize: '0.875rem',
+                marginBottom: '1.25rem',
+                lineHeight: '1.5',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden'
+            }}>
+                {p.description || 'No description provided'}
+            </p>
+
+            <div style={{
+                display: 'flex',
+                gap: '1rem',
+                marginBottom: '1rem',
+                fontSize: '0.8125rem',
+                color: '#5F6368'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                    </svg>
+                    <span>{profile?.name || user?.name || 'Sharaine Salutan'}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                        <line x1="16" y1="2" x2="16" y2="6" />
+                        <line x1="8" y1="2" x2="8" y2="6" />
+                        <line x1="3" y1="10" x2="21" y2="10" />
+                    </svg>
+                    <span>{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                </div>
+            </div>
+
+            {(Array.isArray(p.collaborators) && p.collaborators.length > 0) && (
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    paddingTop: '1rem',
+                    borderTop: '1px solid #E5E7EB'
+                }}>
+                    <div style={{ display: 'flex', marginRight: '0.5rem' }}>
+                        {p.collaborators.slice(0, 3).map((collab: any, idx: number) => {
+                            const colorArr = ['#4285F4', '#EA4335', '#A142F4']
+                            const color = colorArr[idx % colorArr.length]
+                            const initials = (collab.name || collab.email || '?').split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()
+                            return (
+                                <div key={collab.id || idx} style={{
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '50%',
+                                    background: color,
+                                    border: '2px solid white',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: 'white',
+                                    fontSize: '0.75rem',
+                                    fontWeight: '600',
+                                    marginLeft: idx > 0 ? '-8px' : '0'
+                                }}>
+                                    {initials}
+                                </div>
+                            )
+                        })}
+                    </div>
+                    <span style={{
+                        fontSize: '0.8125rem',
+                        color: '#5F6368'
+                    }}>
+                        {p.collaborators.length} {p.collaborators.length === 1 ? 'collaborator' : 'collaborators'}
+                    </span>
+                </div>
+            )}
+        </div>
+    )
 
     return (
         <div style={{
@@ -536,153 +690,44 @@ export default function Projects() {
                             </Link>
                         </div>
                     ) : (
-                        <div style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))',
-                            gap: '1.5rem'
-                        }}>
-                            {projects.map(p => (
-                                <div key={p.id} style={{
-                                    background: 'white',
-                                    borderRadius: '12px',
-                                    padding: '1.75rem',
-                                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
-                                    border: '1px solid #E5E7EB',
-                                    transition: 'all 0.2s',
-                                    cursor: 'pointer'
-                                }}
-                                    onMouseOver={(e) => {
-                                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)'
-                                        e.currentTarget.style.transform = 'translateY(-2px)'
-                                    }}
-                                    onMouseOut={(e) => {
-                                        e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.08)'
-                                        e.currentTarget.style.transform = 'translateY(0)'
-                                    }}
-                                    onClick={() => window.location.href = `/projects/${p.id}`}
-                                >
-                                    {/* Header with Icon and File Count */}
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                                        <div style={{
-                                            width: '48px',
-                                            height: '48px',
-                                            borderRadius: '12px',
-                                            background: '#E8F0FE',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center'
-                                        }}>
-                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4285F4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                                            </svg>
-                                        </div>
-                                        <span style={{
-                                            background: '#E6F4EA',
-                                            color: '#34A853',
-                                            padding: '0.25rem 0.75rem',
-                                            borderRadius: '12px',
-                                            fontSize: '0.8125rem',
-                                            fontWeight: '500'
-                                        }}>
-                                            {p.files.length} {p.files.length === 1 ? 'file' : 'files'}
-                                        </span>
-                                    </div>
-
-                                    {/* Project Title */}
-                                    <h3 style={{
-                                        fontSize: '1.125rem',
-                                        fontWeight: '600',
-                                        color: '#202124',
-                                        marginBottom: '0.5rem',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap'
-                                    }}>{p.name}</h3>
-
-                                    {/* Project Description */}
-                                    <p style={{
-                                        color: '#5F6368',
-                                        fontSize: '0.875rem',
-                                        marginBottom: '1.25rem',
-                                        lineHeight: '1.5',
-                                        display: '-webkit-box',
-                                        WebkitLineClamp: 2,
-                                        WebkitBoxOrient: 'vertical',
-                                        overflow: 'hidden'
-                                    }}>
-                                        {p.description || 'No description provided'}
-                                    </p>
-
-                                    {/* Creator and Date */}
-                                    <div style={{
-                                        display: 'flex',
-                                        gap: '1rem',
-                                        marginBottom: '1rem',
-                                        fontSize: '0.8125rem',
-                                        color: '#5F6368'
-                                    }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                                                <circle cx="12" cy="7" r="4" />
-                                            </svg>
-                                            <span>{profile?.name || user?.name || 'Sharaine Salutan'}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                                                <line x1="16" y1="2" x2="16" y2="6" />
-                                                <line x1="8" y1="2" x2="8" y2="6" />
-                                                <line x1="3" y1="10" x2="21" y2="10" />
-                                            </svg>
-                                            <span>{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Collaborators */}
-                                    {(Array.isArray(p.collaborators) && p.collaborators.length > 0) && (
-                                        <div style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '0.5rem',
-                                            paddingTop: '1rem',
-                                            borderTop: '1px solid #E5E7EB'
-                                        }}>
-                                            <div style={{ display: 'flex', marginRight: '0.5rem' }}>
-                                                {p.collaborators.slice(0, 3).map((collab, idx) => {
-                                                    const colorArr = ['#4285F4', '#EA4335', '#A142F4'];
-                                                    const color = colorArr[idx % colorArr.length];
-                                                    const initials = (collab.name || collab.email || '?').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-                                                    return (
-                                                        <div key={collab.id || idx} style={{
-                                                            width: '32px',
-                                                            height: '32px',
-                                                            borderRadius: '50%',
-                                                            background: color,
-                                                            border: '2px solid white',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center',
-                                                            color: 'white',
-                                                            fontSize: '0.75rem',
-                                                            fontWeight: '600',
-                                                            marginLeft: idx > 0 ? '-8px' : '0'
-                                                        }}>
-                                                            {initials}
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                            <span style={{
-                                                fontSize: '0.8125rem',
-                                                color: '#5F6368'
-                                            }}>
-                                                {p.collaborators.length} {p.collaborators.length === 1 ? 'collaborator' : 'collaborators'}
-                                            </span>
-                                        </div>
-                                    )}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                            <section>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                    <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#202124' }}>Personal Projects</h3>
+                                    <span style={{ color: '#5F6368', fontSize: '0.85rem' }}>{personalProjects.length}</span>
                                 </div>
-                            ))}
+                                {personalProjects.length === 0 ? (
+                                    <div style={{ color: '#5F6368', fontSize: '0.9rem', padding: '0.25rem 0' }}>No personal projects yet.</div>
+                                ) : (
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))',
+                                        gap: '1.5rem'
+                                    }}>
+                                        {personalProjects.map(renderProjectCard)}
+                                    </div>
+                                )}
+                            </section>
+
+                            <div style={{ borderTop: '2px dashed #DADCE0' }} />
+
+                            <section>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                    <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#202124' }}>Shared With Me</h3>
+                                    <span style={{ color: '#5F6368', fontSize: '0.85rem' }}>{memberProjects.length}</span>
+                                </div>
+                                {memberProjects.length === 0 ? (
+                                    <div style={{ color: '#5F6368', fontSize: '0.9rem', padding: '0.25rem 0' }}>No member projects yet.</div>
+                                ) : (
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))',
+                                        gap: '1.5rem'
+                                    }}>
+                                        {memberProjects.map(renderProjectCard)}
+                                    </div>
+                                )}
+                            </section>
                         </div>
                     )}
                 </div>

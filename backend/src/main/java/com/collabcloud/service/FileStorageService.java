@@ -90,19 +90,19 @@ public class FileStorageService {
      */
     public void deleteFile(String filePath) {
         try {
-            String fileName = extractFileName(filePath);
+            String objectPath = extractObjectPath(filePath);
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(buildObjectDeleteUrl()))
                     .header("Authorization", "Bearer " + serviceKey)
                     .header("Content-Type", "application/json")
-                    .method("DELETE", HttpRequest.BodyPublishers.ofString("{\"prefixes\":[\"" + escapeJson(fileName) + "\"]}"))
+                    .method("DELETE", HttpRequest.BodyPublishers.ofString("{\"prefixes\":[\"" + escapeJson(objectPath) + "\"]}"))
                     .build();
 
             HttpResponse<String> response = sendStringRequest(request);
             if (!isSuccess(response.statusCode())) {
                 throw new RuntimeException("Supabase delete failed with status " + response.statusCode() + ": " + response.body());
             }
-            logger.info("File deleted from Supabase: {}", fileName);
+            logger.info("File deleted from Supabase: {}", objectPath);
         } catch (Exception ex) {
             logger.error("Could not delete file: " + filePath, ex);
             throw new RuntimeException("Could not delete file: " + filePath, ex);
@@ -122,9 +122,9 @@ public class FileStorageService {
                 return resource.getByteArray();
             }
 
-            String fileName = extractFileName(filePath);
+                String objectPath = extractObjectPath(filePath);
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(buildObjectReadUrl(fileName)))
+                    .uri(URI.create(buildObjectReadUrl(objectPath)))
                     .header("Authorization", "Bearer " + serviceKey)
                     .GET()
                     .build();
@@ -153,9 +153,9 @@ public class FileStorageService {
                 return;
             }
 
-            String fileName = extractFileName(filePath);
-            uploadBytes(fileName, content.getBytes(StandardCharsets.UTF_8));
-            logger.info("File content updated in Supabase: {}", fileName);
+            String objectPath = extractObjectPath(filePath);
+            uploadBytes(objectPath, content.getBytes(StandardCharsets.UTF_8));
+            logger.info("File content updated in Supabase: {}", objectPath);
         } catch (Exception ex) {
             throw new RuntimeException("Could not update file content: " + filePath, ex);
         }
@@ -184,12 +184,12 @@ public class FileStorageService {
         return statusCode >= 200 && statusCode < 300;
     }
 
-    private String buildObjectUploadUrl(String fileName) {
-        return buildBaseUrl() + "/storage/v1/object/" + bucket + "/" + fileName;
+    private String buildObjectUploadUrl(String objectPath) {
+        return buildBaseUrl() + "/storage/v1/object/" + bucket + "/" + encodeObjectPath(objectPath);
     }
 
-    private String buildObjectReadUrl(String fileName) {
-        return buildBaseUrl() + "/storage/v1/object/" + bucket + "/" + fileName;
+    private String buildObjectReadUrl(String objectPath) {
+        return buildBaseUrl() + "/storage/v1/object/" + bucket + "/" + encodeObjectPath(objectPath);
     }
 
     private String buildObjectDeleteUrl() {
@@ -204,17 +204,19 @@ public class FileStorageService {
         return bucket + "/" + fileName;
     }
 
-    private String extractFileName(String filePath) {
+    private String extractObjectPath(String filePath) {
         if (filePath == null || filePath.isBlank()) {
             throw new RuntimeException("File path is required");
         }
 
         String cleaned = filePath.replace('\\', '/');
-        int lastSlashIndex = cleaned.lastIndexOf('/');
-        if (lastSlashIndex >= 0) {
-            return cleaned.substring(lastSlashIndex + 1);
+        if (cleaned.startsWith(bucket + "/")) {
+            return cleaned.substring(bucket.length() + 1);
         }
-        return cleaned;
+        if (cleaned.startsWith("/" + bucket + "/")) {
+            return cleaned.substring(bucket.length() + 2);
+        }
+        return cleaned.startsWith("/") ? cleaned.substring(1) : cleaned;
     }
 
     private String escapeJson(String value) {
@@ -225,10 +227,22 @@ public class FileStorageService {
         return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
     }
 
+    private String encodeObjectPath(String objectPath) {
+        String[] parts = objectPath.split("/");
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < parts.length; i++) {
+            if (i > 0) {
+                builder.append('/');
+            }
+            builder.append(encodePathSegment(parts[i]));
+        }
+        return builder.toString();
+    }
+
     public String getSignedUrl(String filePath) {
         try {
-            String fileName = extractFileName(filePath);
-            String url = buildBaseUrl() + "/storage/v1/object/sign/" + bucket + "/" + encodePathSegment(fileName);
+            String objectPath = extractObjectPath(filePath);
+            String url = buildBaseUrl() + "/storage/v1/object/sign/" + bucket + "/" + encodeObjectPath(objectPath);
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
@@ -243,16 +257,59 @@ public class FileStorageService {
             }
 
             String body = response.body();
-            int start = body.indexOf("\"signedURL\":\"") + 13;
+            int start = body.indexOf("\"signedURL\":\"");
+            int keyLen = 13;
+            if (start < 0) {
+                start = body.indexOf("\"signedUrl\":\"");
+                keyLen = 13;
+            }
+            if (start < 0) {
+                throw new RuntimeException("Unexpected signed URL response: " + body);
+            }
+            start += keyLen;
             int end = body.indexOf('"', start);
             if (start < 13 || end <= start) {
                 throw new RuntimeException("Unexpected signed URL response: " + body);
             }
 
-            String signedPath = body.substring(start, end);
+            String signedPath = body.substring(start, end).replace("\\/", "/");
+            if (signedPath.startsWith("http://") || signedPath.startsWith("https://")) {
+                return signedPath;
+            }
+            if (!signedPath.startsWith("/")) {
+                signedPath = "/" + signedPath;
+            }
+            // Supabase often returns paths like /object/sign/... which still require /storage/v1 prefix.
+            if (signedPath.startsWith("/object/")) {
+                signedPath = "/storage/v1" + signedPath;
+            }
             return buildBaseUrl() + signedPath;
         } catch (Exception ex) {
             throw new RuntimeException("Could not generate signed URL for: " + filePath, ex);
+        }
+    }
+
+    public long getFileSize(String filePath) {
+        try {
+            String signed = getSignedUrl(filePath);
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(signed))
+                    .method("HEAD", HttpRequest.BodyPublishers.noBody())
+                    .build();
+
+            HttpResponse<Void> response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
+            if (!isSuccess(response.statusCode())) {
+                throw new RuntimeException("Failed to fetch metadata, status=" + response.statusCode());
+            }
+
+            String len = response.headers().firstValue("content-length").orElse("0");
+            try {
+                return Long.parseLong(len);
+            } catch (NumberFormatException e) {
+                return 0L;
+            }
+        } catch (Exception ex) {
+            throw new RuntimeException("Could not get file size for: " + filePath, ex);
         }
     }
 

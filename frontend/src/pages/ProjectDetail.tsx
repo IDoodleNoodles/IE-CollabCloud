@@ -24,6 +24,7 @@ export default function ProjectDetail() {
     const [selectedFileForHistory, setSelectedFileForHistory] = React.useState<any>(null)
     const [showHistoryContent, setShowHistoryContent] = React.useState(false)
     const [selectedHistoryEntry, setSelectedHistoryEntry] = React.useState<any>(null)
+    const [fileSizes, setFileSizes] = React.useState<Record<string, number>>({})
     const profile = session.getUser() || {}
     // Helper: is current user the owner?
     const isOwner = React.useMemo(() => {
@@ -52,6 +53,25 @@ export default function ProjectDetail() {
                     const files = await api.getFilesByProject(String(p.id))
                     // Merge files into project if backend doesn't include them
                     setProject((prev: any) => ({ ...prev, files }))
+                    // Fetch sizes for backend-hosted files
+                    ;(async () => {
+                        try {
+                            const sizes: Record<string, number> = {}
+                            await Promise.all((files || []).map(async (f: any) => {
+                                if (f.dataUrl && !f.dataUrl.startsWith('data:') && f.id) {
+                                    try {
+                                        const m = await api.getFileMeta(String(f.id))
+                                        sizes[String(f.id)] = m.size || 0
+                                    } catch (err) {
+                                        sizes[String(f.id)] = 0
+                                    }
+                                }
+                            }))
+                            setFileSizes(sizes)
+                        } catch (err) {
+                            console.warn('Failed to fetch file sizes', err)
+                        }
+                    })()
                     const allServerComments = await api.getCommentsByProject(String(p.id))
                     // adapt to local Comment shape by filling missing fields
                     const adapted: Comment[] = (allServerComments || []).map((c: any) => ({
@@ -428,7 +448,7 @@ export default function ProjectDetail() {
                                                     fontSize: '0.8125rem',
                                                     color: '#9CA3AF',
                                                     margin: 0
-                                                }}>{f.dataUrl ? formatFileSize(getFileSizeFromDataUrl(f.dataUrl)) : '0 MB'}</p>
+                                                }}>{f.dataUrl && f.dataUrl.startsWith('data:') ? formatFileSize(getFileSizeFromDataUrl(f.dataUrl)) : (fileSizes[String(f.id)] ? formatFileSize(fileSizes[String(f.id)]) : '—')}</p>
                                             </div>
                                         </div>
                                         <div style={{ display: 'flex', gap: '0.5rem' }}>

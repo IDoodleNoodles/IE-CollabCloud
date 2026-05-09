@@ -130,23 +130,46 @@ export function debounce<T extends (...args: any[]) => any>(
 /**
  * Download file from data URL or backend
  */
-export function downloadFile(fileName: string, dataUrl: string, mimeType?: string, fileId?: string): void {
+export async function downloadFile(fileName: string, dataUrl: string, mimeType?: string, fileId?: string): Promise<void> {
     try {
-        // Check if this is a backend file (has fileId or doesn't start with 'data:')
+        // If we have a backend file id or the path is not an inline data URL, request a signed URL
         if (fileId || !dataUrl.startsWith('data:')) {
-            // Download from backend API
-            const API_BASE = (import.meta as any).env?.VITE_API_BASE || 'http://localhost:8080'
-            const a = document.createElement('a')
-            a.href = `${API_BASE}/api/files/${fileId}/download`
-            a.download = fileName
-            a.target = '_blank'
-            document.body.appendChild(a)
-            a.click()
-            document.body.removeChild(a)
+            const API_BASE = (import.meta as any).env?.VITE_API_BASE || ''
+            let openedSigned = false
+            try {
+                const res = await fetch(`${API_BASE}/api/files/${fileId}/url`)
+                if (res.ok) {
+                    const json = await res.json()
+                    const signed = json?.url
+                    if (signed) {
+                        const a = document.createElement('a')
+                        a.href = signed
+                        a.download = fileName
+                        a.target = '_blank'
+                        document.body.appendChild(a)
+                        a.click()
+                        document.body.removeChild(a)
+                        openedSigned = true
+                    }
+                }
+            } catch {
+                // fall through to redirect fallback
+            }
+
+            if (!openedSigned) {
+                const API_BASE_FALLBACK = (import.meta as any).env?.VITE_API_BASE || 'http://localhost:8080'
+                const a = document.createElement('a')
+                a.href = `${API_BASE_FALLBACK}/api/files/${fileId}/download`
+                a.download = fileName
+                a.target = '_blank'
+                document.body.appendChild(a)
+                a.click()
+                document.body.removeChild(a)
+            }
             return
         }
 
-        // Handle data URL
+        // Handle inline data URL
         const arr = dataUrl.split(',')
         const matches = /:(.*?);/.exec(arr[0])
         const mime = mimeType || (matches ? matches[1] : 'application/octet-stream')

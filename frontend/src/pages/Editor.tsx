@@ -85,7 +85,7 @@ function Editor() {
                         return
                     }
                     try {
-                        const response = await fetch(signedUrl, { cache: 'no-store' })
+                        const response = await fetch(`/api/files/${fileId}/content`, { cache: 'no-store' })
                         if (response.ok) {
                             const blob = await response.blob()
                             const text = await blob.text()
